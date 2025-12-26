@@ -57,6 +57,7 @@ dependencies:
   shimmer: ^3.0.0
   pinput: ^4.0.0
   smooth_page_indicator: ^1.1.0
+  lottie: ^3.1.0
   
   # Utilities
   get_it: ^7.6.7
@@ -103,6 +104,7 @@ flutter:
     - assets/images/
     - assets/icons/
     - assets/logos/
+    - assets/animations/
     - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see

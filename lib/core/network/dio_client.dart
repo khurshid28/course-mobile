@@ -93,6 +93,12 @@ class DioClient {
     _dio.options.headers.remove('Authorization');
   }
 
+  // Clear all storage
+  Future<void> clearAllStorage() async {
+    await _prefs.clear();
+    _dio.options.headers.remove('Authorization');
+  }
+
   // GET request
   Future<Response> get(
     String path, {

@@ -251,10 +251,14 @@ class _ResultsPageState extends State<ResultsPage> {
               SizedBox(height: 12.h),
               Row(
                 children: [
-                  Icon(
-                    Icons.calendar_today,
-                    size: 14.sp,
-                    color: AppColors.textSecondary,
+                  SvgPicture.asset(
+                    'assets/icons/calendar.svg',
+                    width: 14.w,
+                    height: 14.h,
+                    colorFilter: ColorFilter.mode(
+                      AppColors.textSecondary,
+                      BlendMode.srcIn,
+                    ),
                   ),
                   SizedBox(width: 6.w),
                   Text(

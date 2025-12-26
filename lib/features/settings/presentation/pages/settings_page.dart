@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/format_utils.dart';
+import '../../../../injection_container.dart';
+import '../../../home/data/datasources/payment_remote_datasource.dart';
+import '../../../home/presentation/pages/balance_topup_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -13,6 +20,27 @@ class _SettingsPageState extends State<SettingsPage> {
   String _selectedLanguage = 'uz';
   bool _isDarkMode = false;
   bool _notificationsEnabled = true;
+  double _balance = 0;
+  bool _isLoadingBalance = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBalance();
+  }
+
+  Future<void> _loadBalance() async {
+    try {
+      final paymentDataSource = getIt<PaymentRemoteDataSource>();
+      final balance = await paymentDataSource.getBalance();
+      setState(() {
+        _balance = balance;
+        _isLoadingBalance = false;
+      });
+    } catch (e) {
+      setState(() => _isLoadingBalance = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +70,93 @@ class _SettingsPageState extends State<SettingsPage> {
       body: ListView(
         padding: EdgeInsets.all(16.w),
         children: [
+          // Balance Card
+          _isLoadingBalance
+              ? Shimmer.fromColors(
+                  baseColor: Colors.grey[300]!,
+                  highlightColor: Colors.grey[100]!,
+                  child: Container(
+                    height: 80.h,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16.r),
+                    ),
+                  ),
+                )
+              : GestureDetector(
+                  onTap: () async {
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => BalanceTopupPage(
+                          currentBalance: _balance,
+                        ),
+                      ),
+                    );
+                    if (result == true) {
+                      _loadBalance();
+                    }
+                  },
+                  child: Container(
+                    padding: EdgeInsets.all(20.w),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.primary,
+                          AppColors.primary.withOpacity(0.8),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16.r),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withOpacity(0.3),
+                          blurRadius: 12,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Balans',
+                              style: TextStyle(
+                                fontSize: 14.sp,
+                                color: Colors.white.withOpacity(0.9),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            SizedBox(height: 6.h),
+                            Text(
+                              '${FormatUtils.formatPrice(_balance)} so\'m',
+                              style: TextStyle(
+                                fontSize: 22.sp,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SvgPicture.asset(
+                          'assets/icons/wallet.svg',
+                          width: 36.w,
+                          height: 36.h,
+                          colorFilter: const ColorFilter.mode(
+                            Colors.white,
+                            BlendMode.srcIn,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+          SizedBox(height: 24.h),
+
           // Language Section
           Text(
             'Til',
@@ -155,11 +270,11 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Widget _buildLanguageCard(String label, String code) {
     final isSelected = _selectedLanguage == code;
-    final flagEmoji = code == 'uz'
-        ? '🇺🇿'
+    final flagUrl = code == 'uz'
+        ? 'https://flagcdn.com/w320/uz.png'
         : code == 'ru'
-        ? '🇷🇺'
-        : '🇬🇧';
+        ? 'https://flagcdn.com/w320/ru.png'
+        : 'https://flagcdn.com/w320/gb.png';
 
     return InkWell(
       onTap: () {
@@ -212,7 +327,30 @@ class _SettingsPageState extends State<SettingsPage> {
                     : AppColors.background,
                 borderRadius: BorderRadius.circular(10.r),
               ),
-              child: Text(flagEmoji, style: TextStyle(fontSize: 24.sp)),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6.r),
+                child: CachedNetworkImage(
+                  imageUrl: flagUrl,
+                  width: 32.w,
+                  height: 24.h,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Shimmer.fromColors(
+                    baseColor: Colors.grey[300]!,
+                    highlightColor: Colors.grey[100]!,
+                    child: Container(
+                      width: 32.w,
+                      height: 24.h,
+                      color: Colors.white,
+                    ),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    width: 32.w,
+                    height: 24.h,
+                    color: AppColors.background,
+                    child: Icon(Icons.flag, size: 16.sp, color: AppColors.textSecondary),
+                  ),
+                ),
+              ),
             ),
             SizedBox(width: 16.w),
             Expanded(

@@ -528,6 +528,77 @@ class TeacherCardShimmer extends StatelessWidget {
   }
 }
 
+class TeacherCardHorizontalShimmer extends StatelessWidget {
+  const TeacherCardHorizontalShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 150.w,
+      margin: EdgeInsets.only(right: 16.w),
+      padding: EdgeInsets.all(16.w),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: AppColors.border.withOpacity(0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Avatar
+          Shimmer.fromColors(
+            baseColor: AppColors.shimmerBase,
+            highlightColor: AppColors.shimmerHighlight,
+            child: Container(
+              width: 76.r,
+              height: 76.r,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          SizedBox(height: 12.h),
+          // Name
+          Shimmer.fromColors(
+            baseColor: AppColors.shimmerBase,
+            highlightColor: AppColors.shimmerHighlight,
+            child: Container(
+              width: 100.w,
+              height: 14.h,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4.r),
+              ),
+            ),
+          ),
+          SizedBox(height: 6.h),
+          // Courses count
+          Shimmer.fromColors(
+            baseColor: AppColors.shimmerBase,
+            highlightColor: AppColors.shimmerHighlight,
+            child: Container(
+              width: 60.w,
+              height: 12.h,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4.r),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class CertificateCardShimmer extends StatelessWidget {
   const CertificateCardShimmer({super.key});
 
@@ -656,6 +727,200 @@ class ShimmerLoading extends StatelessWidget {
       baseColor: AppColors.shimmerBase,
       highlightColor: AppColors.shimmerHighlight,
       child: child,
+    );
+  }
+}
+
+class NotificationCardShimmer extends StatelessWidget {
+  const NotificationCardShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(16.w),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          // Icon
+          Shimmer.fromColors(
+            baseColor: AppColors.shimmerBase,
+            highlightColor: AppColors.shimmerHighlight,
+            child: Container(
+              width: 48.w,
+              height: 48.w,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12.r),
+              ),
+            ),
+          ),
+          SizedBox(width: 16.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title
+                Shimmer.fromColors(
+                  baseColor: AppColors.shimmerBase,
+                  highlightColor: AppColors.shimmerHighlight,
+                  child: Container(
+                    width: double.infinity,
+                    height: 16.h,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4.r),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 8.h),
+                // Message
+                Shimmer.fromColors(
+                  baseColor: AppColors.shimmerBase,
+                  highlightColor: AppColors.shimmerHighlight,
+                  child: Container(
+                    width: 200.w,
+                    height: 14.h,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4.r),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 8.h),
+                // Time
+                Shimmer.fromColors(
+                  baseColor: AppColors.shimmerBase,
+                  highlightColor: AppColors.shimmerHighlight,
+                  child: Container(
+                    width: 80.w,
+                    height: 12.h,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4.r),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PaymentCardShimmer extends StatelessWidget {
+  const PaymentCardShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: EdgeInsets.only(bottom: 12.h),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(16.w),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Title and status row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Shimmer.fromColors(
+                    baseColor: AppColors.shimmerBase,
+                    highlightColor: AppColors.shimmerHighlight,
+                    child: Container(
+                      height: 18.h,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4.r),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 12.w),
+                Shimmer.fromColors(
+                  baseColor: AppColors.shimmerBase,
+                  highlightColor: AppColors.shimmerHighlight,
+                  child: Container(
+                    height: 24.h,
+                    width: 80.w,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8.r),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 12.h),
+            // Date and method row
+            Row(
+              children: [
+                Shimmer.fromColors(
+                  baseColor: AppColors.shimmerBase,
+                  highlightColor: AppColors.shimmerHighlight,
+                  child: Container(
+                    height: 14.h,
+                    width: 120.w,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4.r),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 12.h),
+            // Divider
+            Container(
+              height: 1,
+              color: AppColors.border,
+            ),
+            SizedBox(height: 12.h),
+            // Amount row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Shimmer.fromColors(
+                  baseColor: AppColors.shimmerBase,
+                  highlightColor: AppColors.shimmerHighlight,
+                  child: Container(
+                    height: 14.h,
+                    width: 80.w,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4.r),
+                    ),
+                  ),
+                ),
+                Shimmer.fromColors(
+                  baseColor: AppColors.shimmerBase,
+                  highlightColor: AppColors.shimmerHighlight,
+                  child: Container(
+                    height: 20.h,
+                    width: 120.w,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4.r),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

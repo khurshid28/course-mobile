@@ -6,6 +6,11 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/toast_utils.dart';
 import '../../data/models/section_model.dart';
+import '../../data/datasources/course_remote_datasource.dart';
+import '../../data/datasources/saved_courses_local_datasource.dart';
+import '../../data/datasources/comment_remote_datasource.dart';
+import '../../../../injection_container.dart';
+import 'checkout_page.dart';
 
 class CourseDetailPage extends StatefulWidget {
   final int courseId;
@@ -21,6 +26,8 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   late TabController _tabController;
   List<SectionModel> sections = [];
   bool isLoading = true;
+  bool isSaved = false;
+  Map<String, dynamic>? courseData;
   final TextEditingController _commentController = TextEditingController();
 
   @override
@@ -38,10 +45,52 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   }
 
   Future<void> _loadCourseDetails() async {
-    // TODO: Load from API
-    setState(() {
-      isLoading = false;
-    });
+    try {
+      final dataSource = getIt<CourseRemoteDataSource>();
+      final course = await dataSource.getCourseById(widget.courseId);
+
+      if (!mounted) return;
+
+      setState(() {
+        courseData = course;
+        isSaved = course['isSaved'] ?? false;
+        isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => isLoading = false);
+      ToastUtils.showError(context, e);
+    }
+  }
+
+  Future<void> _toggleSave() async {
+    try {
+      final remoteDataSource = getIt<CourseRemoteDataSource>();
+      final localDataSource = getIt<SavedCoursesLocalDataSource>();
+
+      await remoteDataSource.toggleSaveCourse(widget.courseId);
+
+      if (!mounted) return;
+
+      setState(() {
+        isSaved = !isSaved;
+      });
+
+      // Update local storage
+      if (isSaved && courseData != null) {
+        await localDataSource.saveCourse(courseData!);
+      } else {
+        await localDataSource.removeCourse(widget.courseId);
+      }
+
+      ToastUtils.showSuccess(
+        context,
+        isSaved ? 'Kurs saqlandi' : 'Kurs o\'chirildi',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ToastUtils.showError(context, e);
+    }
   }
 
   @override
@@ -74,8 +123,18 @@ class _CourseDetailPageState extends State<CourseDetailPage>
             ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.bookmark_border, color: Colors.white),
-                onPressed: () {},
+                icon: SvgPicture.asset(
+                  isSaved
+                      ? 'assets/icons/heart_filled.svg'
+                      : 'assets/icons/heart.svg',
+                  width: 24.w,
+                  height: 24.h,
+                  colorFilter: ColorFilter.mode(
+                    isSaved ? Colors.red : Colors.white,
+                    BlendMode.srcIn,
+                  ),
+                ),
+                onPressed: _toggleSave,
               ),
               IconButton(
                 icon: const Icon(Icons.share, color: Colors.white),
@@ -365,7 +424,21 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         ),
         child: SafeArea(
           child: ElevatedButton(
-            onPressed: () {},
+            onPressed: courseData == null
+                ? null
+                : () async {
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CheckoutPage(course: courseData!),
+                      ),
+                    );
+                    
+                    // If purchase successful, reload course and notify parent
+                    if (result == true && mounted) {
+                      await _loadCourseDetails();
+                    }
+                  },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF3572ED),
               padding: EdgeInsets.symmetric(vertical: 14.h),
@@ -621,6 +694,8 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                   child: TextField(
                     controller: _commentController,
                     maxLines: null,
+                    cursorHeight: 18.h,
+                    cursorColor: AppColors.primary,
                     decoration: InputDecoration(
                       hintText: 'Izoh yozing...',
                       hintStyle: GoogleFonts.inter(
@@ -653,7 +728,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                   ),
                   child: IconButton(
                     icon: SvgPicture.asset(
-                      'assets/icons/send-alt.svg',
+                      'assets/icons/send.svg',
                       width: 20.w,
                       height: 20.h,
                       colorFilter: const ColorFilter.mode(
@@ -661,11 +736,26 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                         BlendMode.srcIn,
                       ),
                     ),
-                    onPressed: () {
+                    onPressed: () async {
                       if (_commentController.text.isNotEmpty) {
-                        // TODO: Send comment to API
-                        ToastUtils.showSuccess(context, 'Izoh yuborilmoqda...');
-                        _commentController.clear();
+                        try {
+                          final commentDataSource = getIt<CommentRemoteDataSource>();
+                          await commentDataSource.createComment(
+                            courseId: widget.courseId,
+                            comment: _commentController.text,
+                            rating: 5,
+                          );
+                          
+                          _commentController.clear();
+                          if (mounted) {
+                            ToastUtils.showSuccess(context, 'Izoh muvaffaqiyatli yuborildi!');
+                            await _loadCourseDetails();
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ToastUtils.showError(context, e);
+                          }
+                        }
                       }
                     },
                   ),

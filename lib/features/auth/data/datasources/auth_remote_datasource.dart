@@ -93,8 +93,8 @@ class AuthRemoteDataSource {
   }
 
   Future<void> logout() async {
-    _dioClient.removeToken();
-    AppLogger.info('User logged out');
+    await _dioClient.clearAllStorage();
+    AppLogger.info('User logged out and storage cleared');
   }
 
   Future<String> uploadImage(String filePath) async {

@@ -2,14 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:lottie/lottie.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/shimmer_widgets.dart';
+import '../../../../core/utils/format_utils.dart';
 import '../../data/datasources/course_remote_datasource.dart';
 import '../../data/datasources/category_remote_datasource.dart';
 import '../../../../injection_container.dart';
+import 'course_detail_page.dart';
+import 'teacher_detail_page.dart';
 
 class SearchPage extends StatefulWidget {
-  const SearchPage({super.key});
+  final int? categoryId;
+
+  const SearchPage({Key? key, this.categoryId}) : super(key: key);
 
   @override
   State<SearchPage> createState() => _SearchPageState();
@@ -21,16 +27,55 @@ class _SearchPageState extends State<SearchPage>
   late TabController _tabController;
   bool _isSearching = false;
   bool _isLoadingCategories = false;
+  bool _isLoadingCourses = false;
+  bool _isLoadingTeachers = false;
   List<Map<String, dynamic>> _courseResults = [];
+  List<Map<String, dynamic>> _allCourses = []; // Cache for all courses
   List<Map<String, dynamic>> _teacherResults = [];
+  List<Map<String, dynamic>> _allTeachers = []; // Cache for all teachers
   List<Map<String, dynamic>> _categories = [];
   int? _selectedCategoryId;
+  bool _teachersLoaded = false; // Flag to check if teachers are loaded
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      setState(() {}); // Rebuild to update icon colors
+    });
+    _selectedCategoryId = widget.categoryId;
     _loadCategories();
+    // Load default data
+    _loadDefaultCourses();
+    if (_selectedCategoryId != null) {
+      _loadCoursesByCategory(_selectedCategoryId!);
+    }
+  }
+
+  Future<void> _loadDefaultCourses() async {
+    setState(() {
+      _isLoadingCourses = true;
+    });
+
+    try {
+      final courseDataSource = getIt<CourseRemoteDataSource>();
+      final courses = await courseDataSource.getAllCourses();
+
+      if (!mounted) return;
+
+      setState(() {
+        _allCourses = courses.cast<Map<String, dynamic>>();
+        _courseResults = _allCourses;
+        _isLoadingCourses = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _courseResults = [];
+        _isLoadingCourses = false;
+      });
+    }
   }
 
   Future<void> _loadCategories() async {
@@ -65,7 +110,7 @@ class _SearchPageState extends State<SearchPage>
   }
 
   void _performSearch(String query) {
-    if (query.isEmpty) {
+    if (query.isEmpty && _selectedCategoryId == null) {
       setState(() {
         _courseResults = [];
         _teacherResults = [];
@@ -74,16 +119,120 @@ class _SearchPageState extends State<SearchPage>
       return;
     }
 
-    setState(() {
-      _isSearching = true;
-    });
+    if (_tabController.index == 0) {
+      // Courses tab
+      if (_selectedCategoryId != null) {
+        _loadCoursesByCategory(_selectedCategoryId!, query);
+      } else if (query.isNotEmpty) {
+        _searchCourses(query);
+      }
+    } else {
+      // Teachers tab
+      _searchTeachers(query);
+    }
+  }
 
-    // TODO: API call for search
-    // Temporary mock data
+  Future<void> _loadCoursesByCategory(int categoryId, [String? query]) async {
+    // Filter from cache instead of API call
+    List<Map<String, dynamic>> filteredCourses = _allCourses.where((course) {
+      return course['categoryId'] == categoryId;
+    }).toList();
+
+    // Apply search filter if query provided
+    if (query != null && query.isNotEmpty) {
+      filteredCourses = filteredCourses.where((course) {
+        final title = (course['title'] ?? '').toString().toLowerCase();
+        return title.contains(query.toLowerCase());
+      }).toList();
+    }
+
     setState(() {
-      _courseResults = [];
-      _teacherResults = [];
-      _isSearching = false;
+      _courseResults = filteredCourses;
+    });
+  }
+
+  Future<void> _searchCourses(String query) async {
+    // Filter from cache
+    final filteredCourses = _allCourses.where((course) {
+      final title = (course['title'] ?? '').toString().toLowerCase();
+      final subtitle = (course['subtitle'] ?? '').toString().toLowerCase();
+      final searchQuery = query.toLowerCase();
+      return title.contains(searchQuery) || subtitle.contains(searchQuery);
+    }).toList();
+
+    setState(() {
+      _courseResults = filteredCourses;
+    });
+  }
+
+  Future<void> _searchTeachers(String query) async {
+    // If teachers not loaded yet, load them once
+    if (!_teachersLoaded) {
+      setState(() {
+        _isLoadingTeachers = true;
+      });
+
+      try {
+        final courseDataSource = getIt<CourseRemoteDataSource>();
+        final teachers = await courseDataSource.getAllTeachers();
+
+        if (!mounted) return;
+
+        setState(() {
+          _allTeachers = teachers.cast<Map<String, dynamic>>();
+          _teachersLoaded = true;
+          _isLoadingTeachers = false;
+        });
+      } catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _allTeachers = [];
+          _isLoadingTeachers = false;
+        });
+        return;
+      }
+    }
+
+    // Filter from cache
+    List<Map<String, dynamic>> filteredTeachers = _allTeachers;
+
+    // Apply category filter if selected
+    if (_selectedCategoryId != null) {
+      filteredTeachers = filteredTeachers.where((teacher) {
+        final categoriesData = teacher['categories'];
+        if (categoriesData == null) return false;
+
+        if (categoriesData is String) {
+          // If string, check if any category matches
+          return categoriesData.split(',').any((cat) {
+            final categoryName = cat.trim().toLowerCase();
+            final selectedCategory = _categories.firstWhere(
+              (c) => c['id'] == _selectedCategoryId,
+              orElse: () => <String, dynamic>{},
+            );
+            final selectedName = (selectedCategory['nameUz'] ?? selectedCategory['name'] ?? '').toString().toLowerCase();
+            return categoryName.contains(selectedName) || selectedName.contains(categoryName);
+          });
+        } else if (categoriesData is List) {
+          // If list, check if any category id matches
+          return categoriesData.any((cat) {
+            return cat['id'] == _selectedCategoryId;
+          });
+        }
+        return false;
+      }).toList();
+    }
+
+    // Apply search query filter
+    if (query.isNotEmpty) {
+      filteredTeachers = filteredTeachers.where((teacher) {
+        final name = (teacher['name'] ?? '').toString().toLowerCase();
+        return name.contains(query.toLowerCase());
+      }).toList();
+    }
+
+    setState(() {
+      _teacherResults = filteredTeachers;
     });
   }
 
@@ -91,25 +240,8 @@ class _SearchPageState extends State<SearchPage>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: Padding(
-          padding: EdgeInsets.all(8.w),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8.r),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.3),
-                width: 1,
-              ),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
-              iconSize: 18.sp,
-              padding: EdgeInsets.zero,
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
-        ),
+        toolbarHeight: 80.h,
+        automaticallyImplyLeading: false,
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -120,10 +252,11 @@ class _SearchPageState extends State<SearchPage>
           ),
         ),
         title: Container(
-          height: 45.h,
+          margin: EdgeInsets.only(top: 8.h),
+          height: 50.h,
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(25.r),
+            borderRadius: BorderRadius.circular(16.r),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.1),
@@ -134,10 +267,14 @@ class _SearchPageState extends State<SearchPage>
           ),
           child: TextField(
             controller: _searchController,
+            cursorHeight: 20.h,
+            cursorColor: AppColors.primary,
             decoration: InputDecoration(
-              hintText: 'Kurslar va o\'qituvchilarni qidirish...',
-              hintStyle: TextStyle(color: AppColors.textHint, fontSize: 14.sp),
+              hintText: 'Qidirish...',
+              hintStyle: TextStyle(color: AppColors.textHint, fontSize: 15.sp),
               border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
               prefixIcon: Padding(
                 padding: EdgeInsets.all(12.w),
                 child: SvgPicture.asset(
@@ -157,7 +294,7 @@ class _SearchPageState extends State<SearchPage>
                         icon: Icon(
                           Icons.clear,
                           color: AppColors.textSecondary,
-                          size: 22.sp,
+                          size: 20.sp,
                         ),
                         onPressed: () {
                           _searchController.clear();
@@ -171,24 +308,89 @@ class _SearchPageState extends State<SearchPage>
                   : null,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: 16.w,
-                vertical: 10.h,
+                vertical: 14.h,
               ),
             ),
             style: TextStyle(fontSize: 15.sp),
             onChanged: _performSearch,
           ),
         ),
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white.withOpacity(0.7),
-          indicatorColor: Colors.white,
-          indicatorWeight: 3,
-          labelStyle: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w600),
-          tabs: const [
-            Tab(text: 'Kurslar'),
-            Tab(text: 'O\'qituvchilar'),
-          ],
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(60.h),
+          child: Container(
+            margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12.r),
+            ),
+            child: TabBar(
+              controller: _tabController,
+              indicator: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.white,
+                    Colors.white.withOpacity(0.95),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(10.r),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              indicatorSize: TabBarIndicatorSize.tab,
+              indicatorPadding: EdgeInsets.all(4.w),
+              labelColor: AppColors.primary,
+              unselectedLabelColor: Colors.white,
+              labelStyle: TextStyle(
+                fontSize: 15.sp,
+                fontWeight: FontWeight.w600,
+              ),
+              unselectedLabelStyle: TextStyle(
+                fontSize: 15.sp,
+                fontWeight: FontWeight.w500,
+              ),
+              dividerColor: Colors.transparent,
+              tabs: [
+                Tab(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.school_outlined,
+                        size: 18.sp,
+                      ),
+                      SizedBox(width: 6.w),
+                      const Text('Kurslar'),
+                    ],
+                  ),
+                ),
+                Tab(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SvgPicture.asset(
+                        'assets/icons/user.svg',
+                        width: 18.w,
+                        height: 18.h,
+                        colorFilter: ColorFilter.mode(
+                          _tabController.index == 1
+                              ? AppColors.primary
+                              : Colors.white,
+                          BlendMode.srcIn,
+                        ),
+                      ),
+                      SizedBox(width: 6.w),
+                      const Text('O\'qituvchilar'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
       body: Column(
@@ -196,7 +398,7 @@ class _SearchPageState extends State<SearchPage>
           // Categories Horizontal List
           if (_categories.isNotEmpty)
             Container(
-              height: 50.h,
+              height: 60.h,
               decoration: BoxDecoration(
                 color: Colors.white,
                 boxShadow: [
@@ -209,7 +411,7 @@ class _SearchPageState extends State<SearchPage>
               ),
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
                 itemCount: _categories.length + 1,
                 itemBuilder: (context, index) {
                   if (index == 0) {
@@ -261,7 +463,7 @@ class _SearchPageState extends State<SearchPage>
                               onTap: () {
                                 setState(() {
                                   _selectedCategoryId = null;
-                                  _performSearch(_searchController.text);
+                                  _courseResults = [];
                                 });
                               },
                               child: Container(
@@ -292,12 +494,22 @@ class _SearchPageState extends State<SearchPage>
                     padding: EdgeInsets.only(right: 8.w),
                     child: InkWell(
                       onTap: () {
+                        final newCategoryId = isSelected
+                            ? null
+                            : category['id'];
                         setState(() {
-                          _selectedCategoryId = isSelected
-                              ? null
-                              : category['id'];
-                          _performSearch(_searchController.text);
+                          _selectedCategoryId = newCategoryId;
                         });
+                        if (newCategoryId != null) {
+                          _loadCoursesByCategory(
+                            newCategoryId,
+                            _searchController.text.isEmpty
+                                ? null
+                                : _searchController.text,
+                          );
+                        } else {
+                          _performSearch(_searchController.text);
+                        }
                       },
                       child: Container(
                         padding: EdgeInsets.symmetric(
@@ -373,25 +585,18 @@ class _SearchPageState extends State<SearchPage>
   }
 
   Widget _buildCoursesTab() {
-    if (_isSearching) {
+    if (_isLoadingCourses) {
       return ListView.builder(
         padding: EdgeInsets.all(16.w),
-        itemCount: 3,
+        itemCount: 5,
         itemBuilder: (context, index) => const CourseCardShimmer(),
-      );
-    }
-
-    if (_searchController.text.isEmpty) {
-      return _buildEmptyState(
-        icon: Icons.search,
-        message: 'Kurs nomini kiriting',
       );
     }
 
     if (_courseResults.isEmpty) {
       return _buildEmptyState(
         icon: Icons.search_off,
-        message: 'Hech narsa topilmadi',
+        message: 'Kurslar topilmadi',
       );
     }
 
@@ -406,22 +611,25 @@ class _SearchPageState extends State<SearchPage>
   }
 
   Widget _buildTeachersTab() {
-    if (_isSearching) {
+    // Load teachers on first view
+    if (!_teachersLoaded && !_isLoadingTeachers) {
+      _searchTeachers(_searchController.text);
+    }
+
+    if (_isLoadingTeachers) {
       return ListView.builder(
         padding: EdgeInsets.all(16.w),
-        itemCount: 3,
+        itemCount: 5,
         itemBuilder: (context, index) => const TeacherCardShimmer(),
       );
     }
 
-    if (_searchController.text.isEmpty) {
-      return _buildEmptyState(
-        icon: Icons.search,
-        message: 'O\'qituvchi nomini kiriting',
-      );
-    }
+    // Show filtered teachers if category selected or search applied
+    final displayTeachers = (_selectedCategoryId != null || _searchController.text.isNotEmpty)
+        ? _teacherResults
+        : _allTeachers;
 
-    if (_teacherResults.isEmpty) {
+    if (displayTeachers.isEmpty) {
       return _buildEmptyState(
         icon: Icons.search_off,
         message: 'Hech narsa topilmadi',
@@ -430,9 +638,9 @@ class _SearchPageState extends State<SearchPage>
 
     return ListView.builder(
       padding: EdgeInsets.all(16.w),
-      itemCount: _teacherResults.length,
+      itemCount: displayTeachers.length,
       itemBuilder: (context, index) {
-        final teacher = _teacherResults[index];
+        final teacher = displayTeachers[index];
         return _buildTeacherItem(teacher);
       },
     );
@@ -443,22 +651,11 @@ class _SearchPageState extends State<SearchPage>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            padding: EdgeInsets.all(24.w),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.primary.withOpacity(0.1),
-                  AppColors.primary.withOpacity(0.05),
-                ],
-              ),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              size: 64.sp,
-              color: AppColors.primary.withOpacity(0.6),
-            ),
+          Lottie.asset(
+            'assets/animations/loading.json',
+            width: 150.w,
+            height: 150.h,
+            fit: BoxFit.contain,
           ),
           SizedBox(height: 24.h),
           Text(
@@ -493,29 +690,72 @@ class _SearchPageState extends State<SearchPage>
         child: InkWell(
           borderRadius: BorderRadius.circular(16.r),
           onTap: () {
-            // TODO: Navigate to course detail
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => CourseDetailPage(courseId: course['id']),
+              ),
+            );
           },
           child: Padding(
             padding: EdgeInsets.all(12.w),
             child: Row(
               children: [
-                Container(
-                  width: 70.w,
-                  height: 70.w,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AppColors.primary.withOpacity(0.8),
-                        AppColors.primary,
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(12.r),
-                  ),
-                  child: Icon(
-                    Icons.play_circle_outline,
-                    color: Colors.white,
-                    size: 32.sp,
-                  ),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12.r),
+                  child: course['thumbnail'] != null
+                      ? CachedNetworkImage(
+                          imageUrl: course['thumbnail'],
+                          width: 80.w,
+                          height: 80.w,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            width: 80.w,
+                            height: 80.w,
+                            color: AppColors.border,
+                            child: Center(
+                              child: Icon(
+                                Icons.image,
+                                color: AppColors.textHint,
+                                size: 32.sp,
+                              ),
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            width: 80.w,
+                            height: 80.w,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppColors.primary.withOpacity(0.8),
+                                  AppColors.primary,
+                                ],
+                              ),
+                            ),
+                            child: Icon(
+                              Icons.play_circle_outline,
+                              color: Colors.white,
+                              size: 32.sp,
+                            ),
+                          ),
+                        )
+                      : Container(
+                          width: 80.w,
+                          height: 80.w,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                AppColors.primary.withOpacity(0.8),
+                                AppColors.primary,
+                              ],
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.play_circle_outline,
+                            color: Colors.white,
+                            size: 32.sp,
+                          ),
+                        ),
                 ),
                 SizedBox(width: 12.w),
                 Expanded(
@@ -542,7 +782,7 @@ class _SearchPageState extends State<SearchPage>
                           SizedBox(width: 4.w),
                           Expanded(
                             child: Text(
-                              course['teacher'] ?? '',
+                              course['teacher']?['name'] ?? 'O\'qituvchi',
                               style: TextStyle(
                                 fontSize: 13.sp,
                                 color: AppColors.textSecondary,
@@ -568,7 +808,7 @@ class _SearchPageState extends State<SearchPage>
                         child: Text(
                           course['isFree']
                               ? 'Bepul'
-                              : '${course['price']} so\'m',
+                              : '${FormatUtils.formatPrice(course['price'])} so\'m',
                           style: TextStyle(
                             fontSize: 12.sp,
                             fontWeight: FontWeight.bold,
@@ -595,6 +835,28 @@ class _SearchPageState extends State<SearchPage>
   }
 
   Widget _buildTeacherItem(Map<String, dynamic> teacher) {
+    // Get teacher categories - handle both String and List
+    List<String> categoryList = [];
+    final categoriesData = teacher['categories'];
+    
+    if (categoriesData != null) {
+      if (categoriesData is String) {
+        // If it's a string, split by comma
+        categoryList = categoriesData
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+      } else if (categoriesData is List) {
+        // If it's a list, process it
+        categoryList = categoriesData
+            .map((cat) => cat['nameUz'] ?? cat['name'] ?? '')
+            .where((name) => name.isNotEmpty)
+            .map((e) => e.toString())
+            .toList();
+      }
+    }
+
     return Container(
       margin: EdgeInsets.only(bottom: 12.h),
       decoration: BoxDecoration(
@@ -604,29 +866,85 @@ class _SearchPageState extends State<SearchPage>
       ),
       child: ListTile(
         contentPadding: EdgeInsets.all(12.w),
-        leading: CircleAvatar(
-          radius: 30.r,
-          backgroundColor: AppColors.primary,
-          child: Text(
-            teacher['name']?.substring(0, 1) ?? 'T',
-            style: TextStyle(
-              fontSize: 20.sp,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-        ),
+        leading: teacher['avatar'] != null
+            ? CircleAvatar(
+                radius: 30.r,
+                backgroundImage: CachedNetworkImageProvider(teacher['avatar']),
+                backgroundColor: AppColors.border,
+              )
+            : CircleAvatar(
+                radius: 30.r,
+                backgroundColor: AppColors.primary.withOpacity(0.1),
+                child: SvgPicture.asset(
+                  'assets/icons/user.svg',
+                  width: 28.w,
+                  height: 28.h,
+                  colorFilter: ColorFilter.mode(
+                    AppColors.primary,
+                    BlendMode.srcIn,
+                  ),
+                ),
+              ),
         title: Text(
           teacher['name'] ?? '',
           style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
         ),
-        subtitle: Text(
-          '${teacher['coursesCount'] ?? 0} ta kurs',
-          style: TextStyle(fontSize: 14.sp, color: AppColors.textSecondary),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${teacher['_count']?['courses'] ?? teacher['coursesCount'] ?? 0} ta kurs',
+              style: TextStyle(fontSize: 14.sp, color: AppColors.textSecondary),
+            ),
+            if (categoryList.isNotEmpty) ...[
+              SizedBox(height: 6.h),
+              SizedBox(
+                height: 24.h,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: categoryList.length,
+                  itemBuilder: (context, index) {
+                    return Container(
+                      margin: EdgeInsets.only(right: 6.w),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 8.w,
+                        vertical: 4.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6.r),
+                        border: Border.all(
+                          color: AppColors.primary.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          categoryList[index],
+                          style: TextStyle(
+                            fontSize: 11.sp,
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ],
         ),
         trailing: const Icon(Icons.chevron_right),
         onTap: () {
-          // TODO: Navigate to teacher detail
+          if (teacher['id'] != null) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => TeacherDetailPage(teacherId: teacher['id']),
+              ),
+            );
+          }
         },
       ),
     );

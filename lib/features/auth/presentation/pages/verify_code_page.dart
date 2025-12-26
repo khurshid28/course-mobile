@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:pinput/pinput.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'dart:async';
 import '../../../../core/theme/app_colors.dart';
 import '../../data/datasources/auth_remote_datasource.dart';
@@ -23,6 +22,7 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
   bool _isLoading = false;
   int _secondsRemaining = 120;
   Timer? _timer;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -38,6 +38,7 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
   }
 
   void _startTimer() {
+    _timer?.cancel(); // Cancel existing timer if any
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
         if (_secondsRemaining > 0) {
@@ -47,6 +48,34 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
         }
       });
     });
+  }
+
+  Future<void> _resendCode() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final authDataSource = getIt<AuthRemoteDataSource>();
+      await authDataSource.sendCode(widget.phone);
+
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _secondsRemaining = 120;
+        _pinController.clear();
+      });
+      _startTimer();
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _errorMessage = "Kod yuborishda xatolik. Qaytadan urinib ko'ring";
+      });
+    }
   }
 
   void _verifyCode(String code) async {
@@ -77,17 +106,13 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() => _isLoading = false);
-
-      Fluttertoast.showToast(
-        msg: "Kod noto'g'ri yoki xatolik: ${e.toString()}",
-        toastLength: Toast.LENGTH_LONG,
-        gravity: ToastGravity.BOTTOM,
-        backgroundColor: AppColors.error,
-        textColor: Colors.white,
-        fontSize: 16.sp,
-      );
-      _pinController.clear();
+      
+      print('Verification error: $e'); // Debug log
+      
+      setState(() {
+        _isLoading = false;
+        _errorMessage = "Kod noto'g'ri. Qaytadan urinib ko'ring";
+      });
     }
   }
 
@@ -122,11 +147,34 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
       ),
     );
 
+    final errorPinTheme = defaultPinTheme.copyWith(
+      decoration: BoxDecoration(
+        color: AppColors.error.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: AppColors.error, width: 2),
+      ),
+    );
+
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
+        leading: Padding(
+          padding: EdgeInsets.all(8.w),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8.r),
+              border: Border.all(
+                color: AppColors.primary.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: IconButton(
+              icon: Icon(Icons.arrow_back_ios_new, color: AppColors.primary),
+              iconSize: 18.sp,
+              padding: EdgeInsets.zero,
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
         ),
       ),
       body: SafeArea(
@@ -158,33 +206,94 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
                   length: 6,
                   defaultPinTheme: defaultPinTheme,
                   focusedPinTheme: focusedPinTheme,
+                  errorPinTheme: errorPinTheme,
+                  forceErrorState: _errorMessage != null,
                   onCompleted: _verifyCode,
+                  onChanged: (value) {
+                    // Clear error when user starts typing
+                    if (_errorMessage != null && value.isNotEmpty) {
+                      setState(() => _errorMessage = null);
+                    }
+                  },
                   enabled: !_isLoading,
                 ),
               ),
+              if (_errorMessage != null) ...[
+                SizedBox(height: 16.h),
+                Center(
+                  child: Text(
+                    _errorMessage!,
+                    style: TextStyle(
+                      fontSize: 14.sp,
+                      color: AppColors.error,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
               SizedBox(height: 32.h),
               Center(
                 child: _isLoading
                     ? const CircularProgressIndicator()
                     : Column(
                         children: [
-                          Text(
-                            _timerText,
-                            style: TextStyle(
-                              fontSize: 18.sp,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 16.w,
+                              vertical: 12.h,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _secondsRemaining > 0
+                                  ? AppColors.primary.withOpacity(0.1)
+                                  : AppColors.error.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12.r),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.timer_outlined,
+                                  color: _secondsRemaining > 0
+                                      ? AppColors.primary
+                                      : AppColors.error,
+                                  size: 20.sp,
+                                ),
+                                SizedBox(width: 8.w),
+                                Text(
+                                  _timerText,
+                                  style: TextStyle(
+                                    fontSize: 18.sp,
+                                    fontWeight: FontWeight.w600,
+                                    color: _secondsRemaining > 0
+                                        ? AppColors.primary
+                                        : AppColors.error,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           SizedBox(height: 16.h),
                           if (_secondsRemaining == 0)
                             TextButton(
-                              onPressed: () {
-                                setState(() => _secondsRemaining = 120);
-                                _startTimer();
-                                // TODO: Resend code API call
-                              },
-                              child: const Text('Qayta yuborish'),
+                              onPressed: _isLoading ? null : _resendCode,
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 24.w,
+                                  vertical: 12.h,
+                                ),
+                                backgroundColor: AppColors.primary.withOpacity(0.1),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8.r),
+                                ),
+                              ),
+                              child: Text(
+                                'Qayta yuborish',
+                                style: TextStyle(
+                                  fontSize: 16.sp,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primary,
+                                ),
+                              ),
                             ),
                         ],
                       ),

@@ -4,7 +4,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/toast_utils.dart';
+import '../../../../core/utils/format_utils.dart';
 import '../../../../core/widgets/shimmer_widgets.dart';
+import '../../../../core/widgets/teacher_rating_widget.dart';
 import '../../data/datasources/teacher_remote_datasource.dart';
 import '../../../../injection_container.dart';
 import 'course_detail_page.dart';
@@ -21,11 +23,14 @@ class TeacherDetailPage extends StatefulWidget {
 class _TeacherDetailPageState extends State<TeacherDetailPage> {
   bool _isLoading = false;
   Map<String, dynamic>? _teacher;
+  int? _userRating;
+  bool _isLoadingRating = false;
 
   @override
   void initState() {
     super.initState();
     _loadTeacher();
+    _loadUserRating();
   }
 
   Future<void> _loadTeacher() async {
@@ -45,6 +50,50 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
       if (!mounted) return;
 
       setState(() => _isLoading = false);
+      ToastUtils.showError(context, e);
+    }
+  }
+
+  Future<void> _loadUserRating() async {
+    try {
+      final teacherDataSource = getIt<TeacherRemoteDataSource>();
+      final result = await teacherDataSource.getUserRating(widget.teacherId);
+
+      if (!mounted) return;
+
+      setState(() {
+        _userRating = result['userRating'];
+      });
+    } catch (e) {
+      // Silently fail - user might not be logged in
+    }
+  }
+
+  Future<void> _handleRate(int rating) async {
+    setState(() => _isLoadingRating = true);
+
+    try {
+      final teacherDataSource = getIt<TeacherRemoteDataSource>();
+      final result = await teacherDataSource.rateTeacher(widget.teacherId, rating);
+
+      if (!mounted) return;
+
+      setState(() {
+        _userRating = rating;
+        if (_teacher != null) {
+          _teacher!['rating'] = result['averageRating'];
+          _teacher!['totalRatings'] = result['totalRatings'];
+        }
+        _isLoadingRating = false;
+      });
+
+      if (mounted) {
+        ToastUtils.showSuccess(context, 'Baholash muvaffaqiyatli saqlandi!');
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() => _isLoadingRating = false);
       ToastUtils.showError(context, e);
     }
   }
@@ -143,27 +192,24 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
                                                 color: AppColors.secondary,
                                               ),
                                           errorWidget: (context, url, error) =>
-                                              Text(
-                                                _teacher!['name']?.substring(
-                                                      0,
-                                                      1,
-                                                    ) ??
-                                                    'T',
-                                                style: TextStyle(
-                                                  fontSize: 40.sp,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: AppColors.primary,
+                                              SvgPicture.asset(
+                                                'assets/icons/user.svg',
+                                                width: 50.w,
+                                                height: 50.h,
+                                                colorFilter: ColorFilter.mode(
+                                                  AppColors.primary,
+                                                  BlendMode.srcIn,
                                                 ),
                                               ),
                                         ),
                                       )
-                                    : Text(
-                                        _teacher!['name']?.substring(0, 1) ??
-                                            'T',
-                                        style: TextStyle(
-                                          fontSize: 40.sp,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppColors.primary,
+                                    : SvgPicture.asset(
+                                        'assets/icons/user.svg',
+                                        width: 50.w,
+                                        height: 50.h,
+                                        colorFilter: ColorFilter.mode(
+                                          AppColors.primary,
+                                          BlendMode.srcIn,
                                         ),
                                       ),
                               ),
@@ -268,6 +314,21 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
                   ),
                 ),
 
+                // Rating Widget - Bio carddan keyin
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 0),
+                    child: _isLoadingRating
+                        ? const Center(child: CircularProgressIndicator())
+                        : TeacherRatingWidget(
+                            userRating: _userRating,
+                            averageRating: (_teacher!['rating'] ?? 0.0).toDouble(),
+                            totalRatings: _teacher!['totalRatings'] ?? 0,
+                            onRate: _handleRate,
+                          ),
+                  ),
+                ),
+
                 // Categories (if available)
                 if (_teacher!['categories'] != null &&
                     _teacher!['categories'].toString().isNotEmpty)
@@ -298,10 +359,14 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
                                     color: AppColors.primary.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(10.r),
                                   ),
-                                  child: Icon(
-                                    Icons.category_outlined,
-                                    color: AppColors.primary,
-                                    size: 20.sp,
+                                  child: SvgPicture.asset(
+                                    'assets/icons/user.svg',
+                                    width: 20.w,
+                                    height: 20.h,
+                                    colorFilter: ColorFilter.mode(
+                                      AppColors.primary,
+                                      BlendMode.srcIn,
+                                    ),
                                   ),
                                 ),
                                 SizedBox(width: 12.w),
@@ -484,10 +549,14 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
                                           8.r,
                                         ),
                                       ),
-                                      child: Icon(
-                                        Icons.phone,
-                                        size: 20.sp,
-                                        color: AppColors.primary,
+                                      child: SvgPicture.asset(
+                                        'assets/icons/phone.svg',
+                                        width: 20.w,
+                                        height: 20.h,
+                                        colorFilter: ColorFilter.mode(
+                                          AppColors.primary,
+                                          BlendMode.srcIn,
+                                        ),
                                       ),
                                     ),
                                     SizedBox(width: 12.w),
@@ -717,7 +786,7 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
                         ),
                         child: CircleAvatar(
                           radius: 14.r,
-                          backgroundColor: AppColors.secondary,
+                          backgroundColor: AppColors.primary.withOpacity(0.1),
                           backgroundImage:
                               course['teacher']?['avatar'] != null &&
                                   course['teacher']['avatar']
@@ -731,13 +800,13 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
                           child:
                               course['teacher']?['avatar'] == null ||
                                   course['teacher']['avatar'].toString().isEmpty
-                              ? Text(
-                                  course['teacher']?['name']?.substring(0, 1) ??
-                                      'T',
-                                  style: TextStyle(
-                                    fontSize: 12.sp,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.primary,
+                              ? SvgPicture.asset(
+                                  'assets/icons/user.svg',
+                                  width: 14.w,
+                                  height: 14.h,
+                                  colorFilter: ColorFilter.mode(
+                                    AppColors.primary,
+                                    BlendMode.srcIn,
                                   ),
                                 )
                               : null,
@@ -871,7 +940,7 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
                         const Spacer(),
                         if (!isFree)
                           Text(
-                            '${_formatPrice(course['price'])} so\'m',
+                            '${FormatUtils.formatPrice(course['price'])} so\'m',
                             style: TextStyle(
                               fontSize: 16.sp,
                               fontWeight: FontWeight.bold,
@@ -888,16 +957,6 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
         ),
       ),
     );
-  }
-
-  String _formatPrice(dynamic price) {
-    if (price == null) return '0';
-    if (price is String) {
-      return double.parse(price).toStringAsFixed(0);
-    } else if (price is num) {
-      return price.toDouble().toStringAsFixed(0);
-    }
-    return '0';
   }
 
   Widget _buildStatBadge(IconData icon, String value, String label) {

@@ -2,27 +2,96 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../injection_container.dart';
+import '../../data/datasources/course_remote_datasource.dart';
 import 'home_page.dart';
 import 'search_page.dart';
 import 'payments_page.dart';
 import 'profile_page.dart';
 
 class MainPage extends StatefulWidget {
-  const MainPage({super.key});
+  final int initialIndex;
+  final int? categoryId;
+  
+  const MainPage({super.key, this.initialIndex = 0, this.categoryId});
 
   @override
-  State<MainPage> createState() => _MainPageState();
+  State<MainPage> createState() => MainPageState();
 }
 
-class _MainPageState extends State<MainPage> {
-  int _currentIndex = 0;
+class MainPageState extends State<MainPage> {
+  late int _currentIndex;
+  late List<Widget> _pages;
+  int? _selectedCategoryId;
+  int _activeCoursesCount = 0;
 
-  final List<Widget> _pages = const [
-    HomePage(),
-    SearchPage(),
-    PaymentsPage(),
-    ProfilePage(),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _selectedCategoryId = widget.categoryId;
+    _buildPages();
+    _loadActiveCourses();
+  }
+
+  // Public method to refresh from other pages
+  void refreshActiveCourses() {
+    _loadActiveCourses();
+  }
+
+  Future<void> _loadActiveCourses() async {
+    try {
+      final courseDataSource = getIt<CourseRemoteDataSource>();
+      final enrolledCourses = await courseDataSource.getEnrolledCourses();
+      
+      final now = DateTime.now();
+      int activeCourses = 0;
+      for (var course in enrolledCourses) {
+        if (course['endDate'] == null) {
+          activeCourses++;
+        } else {
+          try {
+            final endDate = DateTime.parse(course['endDate']);
+            if (endDate.isAfter(now)) {
+              activeCourses++;
+            }
+          } catch (e) {
+            activeCourses++;
+          }
+        }
+      }
+      
+      if (mounted) {
+        setState(() {
+          _activeCoursesCount = activeCourses;
+        });
+      }
+    } catch (e) {
+      // Handle error silently
+    }
+  }
+
+  void _buildPages() {
+    _pages = [
+      const HomePage(),
+      SearchPage(categoryId: _selectedCategoryId),
+      const PaymentsPage(),
+      const ProfilePage(),
+    ];
+  }
+
+  void updateSearchCategory(int? categoryId) {
+    setState(() {
+      _selectedCategoryId = categoryId;
+      _buildPages();
+    });
+  }
+
+  void changeTab(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,7 +133,7 @@ class _MainPageState extends State<MainPage> {
             ),
             BottomNavigationBarItem(
               icon: SvgPicture.asset(
-                'assets/icons/video-file.svg',
+                'assets/icons/courses.svg',
                 width: 24.w,
                 height: 24.h,
                 colorFilter: ColorFilter.mode(
@@ -91,16 +160,56 @@ class _MainPageState extends State<MainPage> {
               label: 'To\'lovlar',
             ),
             BottomNavigationBarItem(
-              icon: SvgPicture.asset(
-                'assets/icons/user.svg',
-                width: 24.w,
-                height: 24.h,
-                colorFilter: ColorFilter.mode(
-                  _currentIndex == 3
-                      ? AppColors.primary
-                      : AppColors.textSecondary,
-                  BlendMode.srcIn,
-                ),
+              icon: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  SvgPicture.asset(
+                    'assets/icons/user.svg',
+                    width: 24.w,
+                    height: 24.h,
+                    colorFilter: ColorFilter.mode(
+                      _currentIndex == 3
+                          ? AppColors.primary
+                          : AppColors.textSecondary,
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                  if (_activeCoursesCount > 0)
+                    Positioned(
+                      right: -8,
+                      top: -4,
+                      child: Container(
+                        padding: EdgeInsets.all(4.w),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              AppColors.success,
+                              AppColors.success.withOpacity(0.8),
+                            ],
+                          ),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white,
+                            width: 1.5,
+                          ),
+                        ),
+                        constraints: BoxConstraints(
+                          minWidth: 18.w,
+                          minHeight: 18.w,
+                        ),
+                        child: Center(
+                          child: Text(
+                            '$_activeCoursesCount',
+                            style: TextStyle(
+                              fontSize: 10.sp,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
               label: 'Profil',
             ),

@@ -3,19 +3,21 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/toast_utils.dart';
+import '../../../../core/utils/format_utils.dart';
 import '../../../../core/widgets/shimmer_widgets.dart';
 import '../../data/datasources/course_remote_datasource.dart';
 import '../../data/datasources/category_remote_datasource.dart';
 import '../../data/datasources/banner_remote_datasource.dart';
 import '../../data/datasources/teacher_remote_datasource.dart';
 import '../../../../injection_container.dart';
-import 'search_page.dart';
 import 'notifications_page.dart';
 import 'teachers_page.dart';
 import 'course_detail_page.dart';
 import 'teacher_detail_page.dart';
+import 'main_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -74,6 +76,31 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _toggleSaveCourse(int courseId) async {
+    try {
+      final courseDataSource = getIt<CourseRemoteDataSource>();
+      await courseDataSource.toggleSaveCourse(courseId);
+      
+      if (!mounted) return;
+      
+      // Update local state
+      setState(() {
+        final index = _courses.indexWhere((c) => c['id'] == courseId);
+        if (index != -1) {
+          _courses[index]['isSaved'] = !(_courses[index]['isSaved'] ?? false);
+          final isSaved = _courses[index]['isSaved'];
+          ToastUtils.showSuccess(
+            context,
+            isSaved ? 'Kurs saqlandi' : 'Kurs o\'chirildi',
+          );
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ToastUtils.showError(context, e);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -88,10 +115,10 @@ class _HomePageState extends State<HomePage> {
               height: 24.h,
             ),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SearchPage()),
-              );
+              final mainPageState = context.findAncestorStateOfType<MainPageState>();
+              if (mainPageState != null) {
+                mainPageState.changeTab(1);
+              }
             },
           ),
           Stack(
@@ -128,10 +155,12 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      body: RefreshIndicator(
+        onRefresh: _loadData,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             // Banner Carousel
             _isLoading || _banners.isEmpty
                 ? Container(
@@ -302,16 +331,14 @@ class _HomePageState extends State<HomePage> {
             // Teachers List
             _isLoading
                 ? SizedBox(
-                    height: 180.h,
+                    height: 200.h,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
                       padding: EdgeInsets.symmetric(horizontal: 16.w),
-                      itemCount: 3,
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: 4,
                       itemBuilder: (context, index) {
-                        return Padding(
-                          padding: EdgeInsets.only(right: 12.w),
-                          child: const TeacherCardShimmer(),
-                        );
+                        return const TeacherCardHorizontalShimmer();
                       },
                     ),
                   )
@@ -332,10 +359,11 @@ class _HomePageState extends State<HomePage> {
                     ),
                   )
                 : SizedBox(
-                    height: 180.h,
+                    height: 200.h,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
                       padding: EdgeInsets.symmetric(horizontal: 16.w),
+                      physics: const BouncingScrollPhysics(),
                       itemCount: _teachers.length > 5 ? 5 : _teachers.length,
                       itemBuilder: (context, index) {
                         final teacher = _teachers[index];
@@ -354,22 +382,19 @@ class _HomePageState extends State<HomePage> {
                             );
                           },
                           child: Container(
-                            width: 135.w,
-                            margin: EdgeInsets.only(right: 12.w),
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 12.w,
-                              vertical: 16.h,
-                            ),
+                            width: 150.w,
+                            margin: EdgeInsets.only(right: 16.w),
+                            padding: EdgeInsets.all(16.w),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(16.r),
                               border: Border.all(
-                                color: AppColors.border.withOpacity(0.5),
+                                color: AppColors.border.withOpacity(0.3),
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 10,
+                                  color: Colors.black.withOpacity(0.06),
+                                  blurRadius: 12,
                                   offset: const Offset(0, 4),
                                 ),
                               ],
@@ -397,15 +422,16 @@ class _HomePageState extends State<HomePage> {
                                               height: 72.r,
                                               fit: BoxFit.cover,
                                               placeholder: (context, url) =>
-                                                  Container(
-                                                    color: AppColors.secondary,
-                                                    child: Center(
-                                                      child:
-                                                          CircularProgressIndicator(
-                                                            strokeWidth: 2,
-                                                            color: AppColors
-                                                                .primary,
-                                                          ),
+                                                  Shimmer.fromColors(
+                                                    baseColor: AppColors.shimmerBase,
+                                                    highlightColor: AppColors.shimmerHighlight,
+                                                    child: Container(
+                                                      width: 72.r,
+                                                      height: 72.r,
+                                                      decoration: const BoxDecoration(
+                                                        color: Colors.white,
+                                                        shape: BoxShape.circle,
+                                                      ),
                                                     ),
                                                   ),
                                               errorWidget:
@@ -500,80 +526,88 @@ class _HomePageState extends State<HomePage> {
                       itemBuilder: (context, index) {
                         final category = _categories[index];
 
-                        return Container(
-                          width: 140.w,
-                          margin: EdgeInsets.only(right: 12.w),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16.r),
-                            border: Border.all(color: AppColors.border),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(16.r),
-                            child: Stack(
-                              children: [
-                                // Background Image
-                                if (category['image'] != null)
-                                  Positioned.fill(
-                                    child: CachedNetworkImage(
-                                      imageUrl: category['image'],
-                                      fit: BoxFit.cover,
-                                      placeholder: (context, url) =>
-                                          Container(color: AppColors.border),
-                                      errorWidget: (context, url, error) =>
-                                          Container(
-                                            color: AppColors.primary
-                                                .withOpacity(0.1),
-                                          ),
+                        return GestureDetector(
+                          onTap: () {
+                            final mainPageState = context.findAncestorStateOfType<MainPageState>();
+                            if (mainPageState != null) {
+                              mainPageState.updateSearchCategory(category['id']);
+                              mainPageState.changeTab(1);
+                            }
+                          },
+                          child: Container(
+                            width: 140.w,
+                            margin: EdgeInsets.only(right: 12.w),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16.r),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(16.r),
+                              child: Stack(
+                                children: [
+                                  // Background Image
+                                  if (category['image'] != null)
+                                    Positioned.fill(
+                                      child: CachedNetworkImage(
+                                        imageUrl: category['image'],
+                                        fit: BoxFit.cover,
+                                        placeholder: (context, url) =>
+                                            Container(color: AppColors.border),
+                                        errorWidget: (context, url, error) =>
+                                            Container(
+                                              color: AppColors.primary
+                                                  .withOpacity(0.1),
+                                            ),
+                                      ),
                                     ),
-                                  ),
 
-                                // Gradient Overlay
-                                Positioned.fill(
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          Colors.black.withOpacity(0.6),
-                                          Colors.black.withOpacity(0.3),
-                                        ],
-                                        begin: Alignment.bottomCenter,
-                                        end: Alignment.topCenter,
+                                  // Gradient Overlay
+                                  Positioned.fill(
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            Colors.black.withOpacity(0.6),
+                                            Colors.black.withOpacity(0.3),
+                                          ],
+                                          begin: Alignment.bottomCenter,
+                                          end: Alignment.topCenter,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
 
-                                // Category Name
-                                Positioned(
-                                  bottom: 12.h,
-                                  left: 12.w,
-                                  right: 12.w,
-                                  child: Text(
-                                    category['nameUz'] ?? category['name'],
-                                    style: TextStyle(
-                                      fontSize: 14.sp,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white,
-                                      shadows: [
-                                        Shadow(
-                                          color: Colors.black.withOpacity(0.5),
-                                          blurRadius: 4,
-                                        ),
-                                      ],
+                                  // Category Name
+                                  Positioned(
+                                    bottom: 12.h,
+                                    left: 12.w,
+                                    right: 12.w,
+                                    child: Text(
+                                      category['nameUz'] ?? category['name'],
+                                      style: TextStyle(
+                                        fontSize: 14.sp,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                        shadows: [
+                                          Shadow(
+                                            color: Colors.black.withOpacity(0.5),
+                                            blurRadius: 4,
+                                          ),
+                                        ],
+                                      ),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    textAlign: TextAlign.center,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         );
                       },
                     ),
                   ),
-
             SizedBox(height: 24.h),
 
             // Popular Courses
@@ -618,7 +652,8 @@ class _HomePageState extends State<HomePage> {
                       return _buildCourseCard(course);
                     },
                   ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -626,15 +661,25 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildCourseCard(Map<String, dynamic> course) {
     final isFree = course['isFree'] ?? false;
+    final isSaved = course['isSaved'] ?? false;
 
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
+      onTap: () async {
+        final result = await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => CourseDetailPage(courseId: course['id']),
           ),
         );
+        
+        // Reload data and refresh main page badge
+        _loadData();
+        
+        // Find MainPage and refresh active courses count
+        if (result == true && mounted) {
+          final mainPageState = context.findAncestorStateOfType<MainPageState>();
+          mainPageState?.refreshActiveCourses();
+        }
       },
       child: Container(
         margin: EdgeInsets.only(bottom: 16.h),
@@ -717,26 +762,35 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                   ),
-                // Bookmark button
+                // Save button
                 Positioned(
                   top: 12.h,
                   right: 12.w,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 8,
+                  child: GestureDetector(
+                    onTap: () => _toggleSaveCourse(course['id']),
+                    child: Container(
+                      padding: EdgeInsets.all(8.w),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                      child: SvgPicture.asset(
+                        isSaved
+                            ? 'assets/icons/heart_filled.svg'
+                            : 'assets/icons/heart.svg',
+                        width: 20.w,
+                        height: 20.h,
+                        colorFilter: ColorFilter.mode(
+                          isSaved ? Colors.red : AppColors.primary,
+                          BlendMode.srcIn,
                         ),
-                      ],
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.bookmark_border),
-                      onPressed: () {},
-                      color: AppColors.primary,
-                      iconSize: 24.sp,
+                      ),
                     ),
                   ),
                 ),
@@ -842,7 +896,7 @@ class _HomePageState extends State<HomePage> {
                         const Spacer(),
                         if (!isFree)
                           Text(
-                            '${_formatPrice(course['price'])} so\'m',
+                            '${FormatUtils.formatPrice(course['price'])} so\'m',
                             style: TextStyle(
                               fontSize: 18.sp,
                               fontWeight: FontWeight.bold,
@@ -861,15 +915,4 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  String _formatPrice(dynamic price) {
-    if (price == null) return '0';
-
-    if (price is String) {
-      return double.parse(price).toStringAsFixed(0);
-    } else if (price is num) {
-      return price.toDouble().toStringAsFixed(0);
-    }
-
-    return '0';
-  }
 }

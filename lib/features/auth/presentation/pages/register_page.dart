@@ -114,6 +114,8 @@ class _RegisterPageState extends State<RegisterPage> {
                   LengthLimitingTextInputFormatter(9),
                   _PhoneNumberFormatter(),
                 ],
+                cursorHeight: 18.h,
+                cursorColor: AppColors.primary,
                 decoration: InputDecoration(
                   hintText: '',
                   prefixIcon: Padding(

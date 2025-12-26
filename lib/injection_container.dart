@@ -8,6 +8,8 @@ import 'features/home/data/datasources/test_remote_datasource.dart';
 import 'features/home/data/datasources/banner_remote_datasource.dart';
 import 'features/home/data/datasources/notification_remote_datasource.dart';
 import 'features/home/data/datasources/teacher_remote_datasource.dart';
+import 'features/home/data/datasources/payment_remote_datasource.dart';
+import 'features/home/data/datasources/saved_courses_local_datasource.dart';
 
 final getIt = GetIt.instance;
 
@@ -40,5 +42,11 @@ Future<void> setupServiceLocator() async {
   );
   getIt.registerLazySingleton<NotificationRemoteDataSource>(
     () => NotificationRemoteDataSource(),
+  );
+  getIt.registerLazySingleton<PaymentRemoteDataSource>(
+    () => PaymentRemoteDataSource(getIt<DioClient>()),
+  );
+  getIt.registerLazySingleton<SavedCoursesLocalDataSource>(
+    () => SavedCoursesLocalDataSource(getIt<SharedPreferences>()),
   );
 }

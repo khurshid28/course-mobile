@@ -132,6 +132,8 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
               SizedBox(height: 32.h),
               TextField(
                 controller: _firstNameController,
+                cursorHeight: 18.h,
+                cursorColor: AppColors.primary,
                 decoration: InputDecoration(
                   labelText: 'Ism',
                   hintText: 'Ismingizni kiriting',
@@ -155,6 +157,8 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
               SizedBox(height: 16.h),
               TextField(
                 controller: _surnameController,
+                cursorHeight: 18.h,
+                cursorColor: AppColors.primary,
                 decoration: InputDecoration(
                   labelText: 'Familiya',
                   hintText: 'Familiyangizni kiriting',
@@ -179,6 +183,8 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
+                cursorHeight: 18.h,
+                cursorColor: AppColors.primary,
                 decoration: InputDecoration(
                   labelText: 'Email (ixtiyoriy)',
                   hintText: 'emailingiz@example.com',

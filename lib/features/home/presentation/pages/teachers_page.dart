@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/shimmer_widgets.dart';
 import '../../data/datasources/teacher_remote_datasource.dart';
@@ -109,19 +110,44 @@ class _TeachersPageState extends State<TeachersPage> {
                   child: CircleAvatar(
                     radius: 35.r,
                     backgroundColor: AppColors.secondary,
-                    backgroundImage: teacher['avatar'] != null
-                        ? CachedNetworkImageProvider(teacher['avatar'])
-                        : null,
-                    child: teacher['avatar'] == null
-                        ? Text(
+                    child: teacher['avatar'] != null
+                        ? ClipOval(
+                            child: CachedNetworkImage(
+                              imageUrl: teacher['avatar'],
+                              width: 70.r,
+                              height: 70.r,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) =>
+                                  Shimmer.fromColors(
+                                    baseColor: AppColors.shimmerBase,
+                                    highlightColor: AppColors.shimmerHighlight,
+                                    child: Container(
+                                      width: 70.r,
+                                      height: 70.r,
+                                      decoration: const BoxDecoration(
+                                        color: Colors.white,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ),
+                              errorWidget: (context, url, error) => Text(
+                                teacher['name']?.substring(0, 1) ?? 'T',
+                                style: TextStyle(
+                                  fontSize: 24.sp,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                          )
+                        : Text(
                             teacher['name']?.substring(0, 1) ?? 'T',
                             style: TextStyle(
                               fontSize: 24.sp,
                               fontWeight: FontWeight.bold,
                               color: AppColors.primary,
                             ),
-                          )
-                        : null,
+                          ),
                   ),
                 ),
                 SizedBox(width: 16.w),

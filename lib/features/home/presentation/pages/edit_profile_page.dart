@@ -238,6 +238,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
               // First Name
               TextFormField(
                 controller: _firstNameController,
+                cursorHeight: 18.h,
+                cursorColor: AppColors.primary,
                 decoration: InputDecoration(
                   labelText: 'Ism',
                   prefixIcon: Padding(
@@ -268,6 +270,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
               // Surname
               TextFormField(
                 controller: _surnameController,
+                cursorHeight: 18.h,
+                cursorColor: AppColors.primary,
                 decoration: InputDecoration(
                   labelText: 'Familiya',
                   prefixIcon: Padding(
@@ -299,6 +303,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
               TextFormField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
+                cursorHeight: 18.h,
+                cursorColor: AppColors.primary,
                 decoration: InputDecoration(
                   labelText: 'Email (ixtiyoriy)',
                   prefixIcon: Padding(
@@ -541,6 +547,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
               TextFormField(
                 initialValue: widget.user.phone,
                 enabled: false,
+                cursorHeight: 18.h,
+                cursorColor: AppColors.primary,
                 decoration: InputDecoration(
                   labelText: 'Telefon',
                   prefixIcon: Padding(
