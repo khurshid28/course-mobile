@@ -242,76 +242,97 @@ class _SearchPageState extends State<SearchPage>
       appBar: AppBar(
         toolbarHeight: 80.h,
         automaticallyImplyLeading: false,
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.primary, AppColors.primary.withOpacity(0.8)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
-        title: Container(
-          margin: EdgeInsets.only(top: 8.h),
-          height: 50.h,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16.r),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
+        backgroundColor: AppColors.primary,
+ 
+        elevation: 0,
+        // flexibleSpace: Container(
+        //   decoration: BoxDecoration(
+        //     gradient: LinearGradient(
+        //       colors: [AppColors.primary, AppColors.primary.withOpacity(0.8)],
+        //       begin: Alignment.topLeft,
+        //       end: Alignment.bottomRight,
+        //     ),
+        //   ),
+        // ),
+        title: SizedBox(
+          height: 48.h,
+          // decoration: BoxDecoration(
+          //   color: Colors.white.withOpacity(0.2),
+          //   borderRadius: BorderRadius.circular(24.r),
+          //   border: Border.all(
+          //     color: Colors.white.withOpacity(0.3),
+          //     width: 1,
+          //   ),
+          // ),
           child: TextField(
             controller: _searchController,
             cursorHeight: 20.h,
-            cursorColor: AppColors.primary,
+            cursorColor: Colors.white,
+            
+            style: TextStyle(
+              fontSize: 15.sp,
+              fontWeight: FontWeight.w500,
+              color: Colors.white,
+            ),
             decoration: InputDecoration(
+              fillColor: Colors.white.withOpacity(0.4),
+              filled: true,
               hintText: 'Qidirish...',
-              hintStyle: TextStyle(color: AppColors.textHint, fontSize: 15.sp),
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
+              hintStyle: TextStyle(
+                color: Colors.white.withOpacity(0.8),
+                fontSize: 15.sp,
+              ),
+              // border: InputBorder.none,
+              // enabledBorder: InputBorder.none,
+              // focusedBorder: InputBorder.none,
+               border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(24.r),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(24.r),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(24.r),
+                borderSide: BorderSide.none,
+              ),
+              errorBorder: InputBorder.none,
+              focusedErrorBorder: InputBorder.none,
+              disabledBorder: InputBorder.none,
               prefixIcon: Padding(
                 padding: EdgeInsets.all(12.w),
                 child: SvgPicture.asset(
                   'assets/icons/search-alt.svg',
                   width: 20.w,
                   height: 20.h,
-                  colorFilter: ColorFilter.mode(
-                    AppColors.primary,
+                  colorFilter: const ColorFilter.mode(
+                    Colors.white,
                     BlendMode.srcIn,
                   ),
                 ),
               ),
               suffixIcon: _searchController.text.isNotEmpty
-                  ? Padding(
-                      padding: EdgeInsets.only(right: 8.w),
-                      child: IconButton(
-                        icon: Icon(
-                          Icons.clear,
-                          color: AppColors.textSecondary,
-                          size: 20.sp,
-                        ),
-                        onPressed: () {
-                          _searchController.clear();
-                          _performSearch('');
-                          setState(() {
-                            _selectedCategoryId = null;
-                          });
-                        },
+                  ? IconButton(
+                      icon: const Icon(
+                        Icons.clear,
+                        color: Colors.white,
                       ),
+                      onPressed: () {
+                        _searchController.clear();
+                        _performSearch('');
+                        setState(() {
+                          _selectedCategoryId = null;
+                        });
+                      },
                     )
                   : null,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: 16.w,
-                vertical: 14.h,
+                vertical: 12.h,
               ),
+              isDense: true,
             ),
-            style: TextStyle(fontSize: 15.sp),
             onChanged: _performSearch,
           ),
         ),

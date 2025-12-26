@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/toast_utils.dart';
+import '../../../../core/widgets/course_rating_widget.dart';
 import '../../data/models/section_model.dart';
 import '../../data/datasources/course_remote_datasource.dart';
 import '../../data/datasources/saved_courses_local_datasource.dart';
@@ -29,12 +30,18 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   bool isSaved = false;
   Map<String, dynamic>? courseData;
   final TextEditingController _commentController = TextEditingController();
+  double? _userCourseRating;
+  bool _isLoadingRating = false;
+  List<dynamic> _comments = [];
+  bool _isLoadingComments = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _loadCourseDetails();
+    _loadUserCourseRating();
+    _loadComments();
   }
 
   @override
@@ -42,6 +49,60 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     _tabController.dispose();
     _commentController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadUserCourseRating() async {
+    setState(() => _isLoadingRating = true);
+    try {
+      final dataSource = getIt<CourseRemoteDataSource>();
+      final rating = await dataSource.getUserCourseRating(widget.courseId);
+      if (mounted) {
+        setState(() {
+          final ratingValue = rating['rating'];
+          _userCourseRating = ratingValue != null ? (ratingValue is num ? ratingValue.toDouble() : null) : null;
+          _isLoadingRating = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingRating = false);
+      }
+    }
+  }
+
+  Future<void> _handleCourseRate(int rating) async {
+    try {
+      final dataSource = getIt<CourseRemoteDataSource>();
+      await dataSource.rateCourse(widget.courseId, rating);
+      if (mounted) {
+        setState(() => _userCourseRating = rating.toDouble());
+        ToastUtils.showSuccess(context, 'Baho muvaffaqiyatli saqlandi!');
+        await _loadCourseDetails(); // Refresh to get updated average
+      }
+    } catch (e) {
+      if (mounted) {
+        ToastUtils.showError(context, 'Baholashda xatolik yuz berdi');
+      }
+    }
+  }
+
+  Future<void> _loadComments() async {
+    setState(() => _isLoadingComments = true);
+    try {
+      final commentDataSource = getIt<CommentRemoteDataSource>();
+      final comments = await commentDataSource.getCommentsByCourseId(widget.courseId);
+      if (mounted) {
+        setState(() {
+          _comments = comments;
+          _isLoadingComments = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading comments: $e');
+      if (mounted) {
+        setState(() => _isLoadingComments = false);
+      }
+    }
   }
 
   Future<void> _loadCourseDetails() async {
@@ -423,35 +484,67 @@ class _CourseDetailPageState extends State<CourseDetailPage>
           ],
         ),
         child: SafeArea(
-          child: ElevatedButton(
-            onPressed: courseData == null
-                ? null
-                : () async {
-                    final result = await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => CheckoutPage(course: courseData!),
-                      ),
-                    );
-                    
-                    // If purchase successful, reload course and notify parent
-                    if (result == true && mounted) {
-                      await _loadCourseDetails();
-                    }
-                  },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF3572ED),
-              padding: EdgeInsets.symmetric(vertical: 14.h),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12.r),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.primary,
+                  AppColors.primary.withOpacity(0.8),
+                ],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
               ),
+              borderRadius: BorderRadius.circular(12.r),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withOpacity(0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-            child: Text(
-              'Kursni Sotib Olish',
-              style: GoogleFonts.inter(
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
+            child: ElevatedButton(
+              onPressed: courseData == null
+                  ? null
+                  : () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CheckoutPage(course: courseData!),
+                        ),
+                      );
+                      
+                      // If purchase successful, reload course and notify parent
+                      if (result == true && mounted) {
+                        await _loadCourseDetails();
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                padding: EdgeInsets.symmetric(vertical: 16.h),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.shopping_cart_outlined,
+                    color: Colors.white,
+                    size: 20.sp,
+                  ),
+                  SizedBox(width: 8.w),
+                  Text(
+                    'Kursni Sotib Olish',
+                    style: GoogleFonts.inter(
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -583,12 +676,66 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   Widget _buildCommentsTab() {
     return Column(
       children: [
+        // Course Rating Widget
+        if (courseData != null)
+          Container(
+            margin: EdgeInsets.all(16.w),
+            padding: EdgeInsets.all(20.w),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16.r),
+              border: Border.all(color: AppColors.border),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: CourseRatingWidget(
+              userRating: _userCourseRating?.toInt(),
+              averageRating: (courseData!['rating'] is num ? (courseData!['rating'] as num).toDouble() : 0.0),
+              totalRatings: courseData!['_count']?['ratings'] ?? 0,
+              onRate: _handleCourseRate,
+            ),
+          ),
         Expanded(
-          child: ListView.builder(
-            padding: EdgeInsets.all(16.w),
-            itemCount: 5,
-            itemBuilder: (context, index) {
-              return Container(
+          child: _isLoadingComments
+              ? Center(
+                  child: CircularProgressIndicator(color: AppColors.primary),
+                )
+              : _comments.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(32.w),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.comment_outlined,
+                              size: 64.sp,
+                              color: AppColors.textSecondary.withOpacity(0.5),
+                            ),
+                            SizedBox(height: 16.h),
+                            Text(
+                              'Hozircha izohlar yo\'q',
+                              style: TextStyle(
+                                fontSize: 16.sp,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: EdgeInsets.all(16.w),
+                      itemCount: _comments.length,
+                      itemBuilder: (context, index) {
+                        final comment = _comments[index];
+                        final user = comment['user'];
+                        return Container(
                 margin: EdgeInsets.only(bottom: 16.h),
                 padding: EdgeInsets.all(16.w),
                 decoration: BoxDecoration(
@@ -611,9 +758,33 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                         CircleAvatar(
                           radius: 20.r,
                           backgroundColor: AppColors.primary.withOpacity(0.1),
-                          backgroundImage: const CachedNetworkImageProvider(
-                            'https://i.pravatar.cc/150?img=2',
-                          ),
+                          child: user?['avatar'] != null && user['avatar'].toString().isNotEmpty
+                              ? ClipOval(
+                                  child: CachedNetworkImage(
+                                    imageUrl: user['avatar'],
+                                    width: 40.r,
+                                    height: 40.r,
+                                    fit: BoxFit.cover,
+                                    errorWidget: (context, url, error) => SvgPicture.asset(
+                                      'assets/icons/user.svg',
+                                      width: 20.w,
+                                      height: 20.h,
+                                      colorFilter: ColorFilter.mode(
+                                        AppColors.primary,
+                                        BlendMode.srcIn,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : SvgPicture.asset(
+                                  'assets/icons/user.svg',
+                                  width: 20.w,
+                                  height: 20.h,
+                                  colorFilter: ColorFilter.mode(
+                                    AppColors.primary,
+                                    BlendMode.srcIn,
+                                  ),
+                                ),
                         ),
                         SizedBox(width: 12.w),
                         Expanded(
@@ -621,7 +792,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Jasur Abdullayev',
+                                '${user?['firstName'] ?? ''} ${user?['surname'] ?? ''}',
                                 style: GoogleFonts.inter(
                                   fontSize: 15.sp,
                                   fontWeight: FontWeight.w600,
@@ -638,7 +809,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                                       width: 14.w,
                                       height: 14.h,
                                       colorFilter: ColorFilter.mode(
-                                        starIndex < 5
+                                        starIndex < (comment['rating'] ?? 0)
                                             ? Colors.amber
                                             : Colors.grey.shade300,
                                         BlendMode.srcIn,
@@ -651,7 +822,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                           ),
                         ),
                         Text(
-                          '2 kun oldin',
+                          _formatDate(comment['createdAt']),
                           style: GoogleFonts.inter(
                             fontSize: 12.sp,
                             color: AppColors.textSecondary,
@@ -661,7 +832,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                     ),
                     SizedBox(height: 12.h),
                     Text(
-                      'Ajoyib kurs! Flutter asoslarini juda yaxshi tushuntirgan. Amaliy mashqlar ham ko\'p. O\'qituvchining tushuntirish uslubi aniq va tushunarli.',
+                      comment['comment'] ?? '',
                       style: GoogleFonts.inter(
                         fontSize: 14.sp,
                         color: AppColors.textPrimary,
@@ -749,7 +920,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                           _commentController.clear();
                           if (mounted) {
                             ToastUtils.showSuccess(context, 'Izoh muvaffaqiyatli yuborildi!');
-                            await _loadCourseDetails();
+                            await _loadComments(); // Reload comments
                           }
                         } catch (e) {
                           if (mounted) {
@@ -858,6 +1029,29 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         ],
       ),
     );
+  }
+
+  String _formatDate(String? dateStr) {
+    if (dateStr == null) return '';
+    try {
+      final date = DateTime.parse(dateStr);
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inDays > 30) {
+        return '${(difference.inDays / 30).floor()} oy oldin';
+      } else if (difference.inDays > 0) {
+        return '${difference.inDays} kun oldin';
+      } else if (difference.inHours > 0) {
+        return '${difference.inHours} soat oldin';
+      } else if (difference.inMinutes > 0) {
+        return '${difference.inMinutes} daqiqa oldin';
+      } else {
+        return 'Hozirgina';
+      }
+    } catch (e) {
+      return '';
+    }
   }
 }
 

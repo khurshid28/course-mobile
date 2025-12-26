@@ -4,6 +4,7 @@ import 'core/network/dio_client.dart';
 import 'features/auth/data/datasources/auth_remote_datasource.dart';
 import 'features/home/data/datasources/course_remote_datasource.dart';
 import 'features/home/data/datasources/category_remote_datasource.dart';
+import 'features/home/data/datasources/comment_remote_datasource.dart';
 import 'features/home/data/datasources/test_remote_datasource.dart';
 import 'features/home/data/datasources/banner_remote_datasource.dart';
 import 'features/home/data/datasources/notification_remote_datasource.dart';
@@ -30,6 +31,9 @@ Future<void> setupServiceLocator() async {
   );
   getIt.registerLazySingleton<CategoryRemoteDataSource>(
     () => CategoryRemoteDataSource(getIt<DioClient>()),
+  );
+  getIt.registerLazySingleton<CommentRemoteDataSource>(
+    () => CommentRemoteDataSource(getIt<DioClient>()),
   );
   getIt.registerLazySingleton<TestRemoteDataSource>(
     () => TestRemoteDataSource(getIt<DioClient>()),

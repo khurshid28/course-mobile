@@ -682,7 +682,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           },
                         ),
                         _buildMenuItem(
-                          'assets/icons/ticket-discount.svg',
+                          null, // Using icon instead of SVG
                           'Foydalanilgan promo kodlar',
                           () {
                             Navigator.push(
@@ -692,6 +692,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               ),
                             );
                           },
+                          icon: Icons.local_offer_outlined,
                         ),
 
                         Divider(height: 32.h, thickness: 1),
@@ -825,11 +826,12 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildMenuItem(
-    String iconPath,
+    String? iconPath,
     String title,
     VoidCallback onTap, {
     String? trailing,
     Color? color,
+    IconData? icon,
   }) {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 6.h),
@@ -864,15 +866,21 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             borderRadius: BorderRadius.circular(12.r),
           ),
-          child: SvgPicture.asset(
-            iconPath,
-            width: 24.w,
-            height: 24.h,
-            colorFilter: ColorFilter.mode(
-              color ?? AppColors.primary,
-              BlendMode.srcIn,
-            ),
-          ),
+          child: icon != null
+              ? Icon(
+                  icon,
+                  size: 20.sp,
+                  color: color ?? AppColors.primary,
+                )
+              : SvgPicture.asset(
+                  iconPath!,
+                  width: 24.w,
+                  height: 24.h,
+                  colorFilter: ColorFilter.mode(
+                    color ?? AppColors.primary,
+                    BlendMode.srcIn,
+                  ),
+                ),
         ),
         title: Text(
           title,

@@ -113,6 +113,10 @@ class _HomePageState extends State<HomePage> {
               'assets/icons/search-alt.svg',
               width: 24.w,
               height: 24.h,
+              colorFilter: ColorFilter.mode(
+                AppColors.textSecondary,
+                BlendMode.srcIn,
+              ),
             ),
             onPressed: () {
               final mainPageState = context.findAncestorStateOfType<MainPageState>();
@@ -128,6 +132,10 @@ class _HomePageState extends State<HomePage> {
                   'assets/icons/notification-bell.svg',
                   width: 24.w,
                   height: 24.h,
+                  colorFilter: ColorFilter.mode(
+                    AppColors.textSecondary,
+                    BlendMode.srcIn,
+                  ),
                 ),
                 onPressed: () {
                   Navigator.push(
@@ -383,7 +391,7 @@ class _HomePageState extends State<HomePage> {
                           },
                           child: Container(
                             width: 150.w,
-                            margin: EdgeInsets.only(right: 16.w),
+                            margin: EdgeInsets.only(right: 16.w, top: 8.h, bottom: 8.h),
                             padding: EdgeInsets.all(16.w),
                             decoration: BoxDecoration(
                               color: Colors.white,
@@ -828,10 +836,14 @@ class _HomePageState extends State<HomePage> {
                       CircleAvatar(
                         radius: 12.r,
                         backgroundColor: AppColors.primary.withOpacity(0.2),
-                        child: Icon(
-                          Icons.person,
-                          size: 14.sp,
-                          color: AppColors.primary,
+                        child: SvgPicture.asset(
+                          'assets/icons/user.svg',
+                          width: 14.w,
+                          height: 14.h,
+                          colorFilter: ColorFilter.mode(
+                            AppColors.primary,
+                            BlendMode.srcIn,
+                          ),
                         ),
                       ),
                       SizedBox(width: 8.w),
@@ -880,14 +892,18 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
                         SizedBox(width: 12.w),
-                        Icon(
-                          Icons.people_outline,
-                          size: 16.sp,
-                          color: AppColors.textSecondary,
+                        SvgPicture.asset(
+                          'assets/icons/group.svg',
+                          width: 16.w,
+                          height: 16.h,
+                          colorFilter: ColorFilter.mode(
+                            AppColors.textSecondary,
+                            BlendMode.srcIn,
+                          ),
                         ),
                         SizedBox(width: 4.w),
                         Text(
-                          '${course['totalStudents'] ?? 0}',
+                          '${course['_count']?['enrollments'] ?? 0}',
                           style: TextStyle(
                             fontSize: 13.sp,
                             color: AppColors.textSecondary,

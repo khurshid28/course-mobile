@@ -21,6 +21,7 @@ class CommentRemoteDataSource {
     List<String>? screenshots,
   }) async {
     try {
+      print('Creating comment - courseId: $courseId, comment: $comment, rating: $rating');
       final response = await dioClient.post(
         '/comments',
         data: {
@@ -30,8 +31,10 @@ class CommentRemoteDataSource {
           'screenshots': screenshots ?? [],
         },
       );
+      print('Comment created successfully: ${response.data}');
       return response.data as Map<String, dynamic>;
     } catch (e) {
+      print('Error creating comment: $e');
       throw Exception('Izoh yozishda xatolik: $e');
     }
   }
