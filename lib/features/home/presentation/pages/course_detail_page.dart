@@ -1476,7 +1476,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   ) {
     final pageController = PageController(initialPage: initialIndex);
     final currentPage = ValueNotifier<int>(initialIndex);
-    
+
     showDialog(
       context: context,
       barrierColor: Colors.black87,
