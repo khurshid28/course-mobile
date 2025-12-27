@@ -54,9 +54,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   final List<Map<String, String>> _paymentMethods = [
     {'id': 'BALANCE', 'name': 'Balans', 'icon': 'assets/icons/wallet.svg'},
-    {'id': 'CLICK', 'name': 'Click', 'logo': 'logos/click_logo.png'},
-    {'id': 'PAYME', 'name': 'Payme', 'logo': 'logos/payme_logo.png'},
-    {'id': 'UZUM', 'name': 'Uzum', 'logo': 'logos/uzum_logo.png'},
+    {'id': 'CLICK', 'name': 'Click', 'logo': 'assets/logos/click_logo.png'},
+    {'id': 'PAYME', 'name': 'Payme', 'logo': 'assets/logos/payme_logo.png'},
+    {'id': 'UZUM', 'name': 'Uzum', 'logo': 'assets/logos/uzum_logo.png'},
   ];
 
   @override
@@ -121,16 +121,27 @@ class _CheckoutPageState extends State<CheckoutPage> {
       if (!mounted) return;
 
       ToastUtils.showSuccess(context, 'Kurs muvaffaqiyatli sotib olindi!');
-      
+
       // Try to refresh main page active courses count
       final mainPageState = context.findAncestorStateOfType<MainPageState>();
       mainPageState?.refreshActiveCourses();
-      
+
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
       setState(() => _isPurchasing = false);
-      ToastUtils.showError(context, e);
+
+      // Handle specific error messages
+      final errorMessage = e.toString();
+      if (errorMessage.contains('Insufficient balance') ||
+          errorMessage.contains('yetarli emas')) {
+        ToastUtils.showError(
+          context,
+          'Mablag\' yetarli emas. Balansni to\'ldiring.',
+        );
+      } else {
+        ToastUtils.showError(context, e);
+      }
     }
   }
 
@@ -271,9 +282,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           }
                         : null,
                     style: ElevatedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 16.w,
-                      ),
+                      padding: EdgeInsets.symmetric(horizontal: 16.w),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12.r),
                       ),
@@ -290,7 +299,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             ),
                           )
                         : Text(
-                            _promoCodeData == null ? 'Tekshirish' : 'O\'chirish',
+                            _promoCodeData == null
+                                ? 'Tekshirish'
+                                : 'O\'chirish',
                           ),
                   ),
                 ),

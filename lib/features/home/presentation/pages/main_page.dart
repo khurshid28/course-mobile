@@ -12,7 +12,7 @@ import 'profile_page.dart';
 class MainPage extends StatefulWidget {
   final int initialIndex;
   final int? categoryId;
-  
+
   const MainPage({super.key, this.initialIndex = 0, this.categoryId});
 
   @override
@@ -43,7 +43,7 @@ class MainPageState extends State<MainPage> {
     try {
       final courseDataSource = getIt<CourseRemoteDataSource>();
       final enrolledCourses = await courseDataSource.getEnrolledCourses();
-      
+
       final now = DateTime.now();
       int activeCourses = 0;
       for (var course in enrolledCourses) {
@@ -60,7 +60,7 @@ class MainPageState extends State<MainPage> {
           }
         }
       }
-      
+
       if (mounted) {
         setState(() {
           _activeCoursesCount = activeCourses;
@@ -96,7 +96,27 @@ class MainPageState extends State<MainPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _pages[_currentIndex],
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        switchInCurve: Curves.easeInOut,
+        switchOutCurve: Curves.easeInOut,
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0.0, 0.02),
+                end: Offset.zero,
+              ).animate(animation),
+              child: child,
+            ),
+          );
+        },
+        child: Container(
+          key: ValueKey<int>(_currentIndex),
+          child: _pages[_currentIndex],
+        ),
+      ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           boxShadow: [
@@ -118,98 +138,172 @@ class MainPageState extends State<MainPage> {
           unselectedFontSize: 12.sp,
           items: [
             BottomNavigationBarItem(
-              icon: SvgPicture.asset(
-                'assets/icons/logo.svg',
-                width: 24.w,
-                height: 24.h,
-                colorFilter: ColorFilter.mode(
-                  _currentIndex == 0
-                      ? AppColors.primary
-                      : AppColors.textSecondary,
-                  BlendMode.srcIn,
+              icon: TweenAnimationBuilder<double>(
+                tween: Tween<double>(
+                  begin: 0.0,
+                  end: _currentIndex == 0 ? 1.0 : 0.0,
                 ),
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                builder: (context, value, child) {
+                  return Transform.scale(
+                    scale: 0.85 + (value * 0.15),
+                    child: Opacity(
+                      opacity: 0.5 + (value * 0.5),
+                      child: SvgPicture.asset(
+                        'assets/icons/logo.svg',
+                        width: 24.w,
+                        height: 24.h,
+                        colorFilter: ColorFilter.mode(
+                          _currentIndex == 0
+                              ? AppColors.primary
+                              : AppColors.textSecondary,
+                          BlendMode.srcIn,
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
               label: 'Bosh sahifa',
             ),
             BottomNavigationBarItem(
-              icon: SvgPicture.asset(
-                'assets/icons/courses.svg',
-                width: 24.w,
-                height: 24.h,
-                colorFilter: ColorFilter.mode(
-                  _currentIndex == 1
-                      ? AppColors.primary
-                      : AppColors.textSecondary,
-                  BlendMode.srcIn,
+              icon: TweenAnimationBuilder<double>(
+                tween: Tween<double>(
+                  begin: 0.0,
+                  end: _currentIndex == 1 ? 1.0 : 0.0,
                 ),
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                builder: (context, value, child) {
+                  return Transform.scale(
+                    scale: 0.85 + (value * 0.15),
+                    child: Opacity(
+                      opacity: 0.5 + (value * 0.5),
+                      child: SvgPicture.asset(
+                        'assets/icons/courses.svg',
+                        width: 24.w,
+                        height: 24.h,
+                        colorFilter: ColorFilter.mode(
+                          _currentIndex == 1
+                              ? AppColors.primary
+                              : AppColors.textSecondary,
+                          BlendMode.srcIn,
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
               label: 'Kurslar',
             ),
             BottomNavigationBarItem(
-              icon: SvgPicture.asset(
-                'assets/icons/history.svg',
-                width: 24.w,
-                height: 24.h,
-                colorFilter: ColorFilter.mode(
-                  _currentIndex == 2
-                      ? AppColors.primary
-                      : AppColors.textSecondary,
-                  BlendMode.srcIn,
+              icon: TweenAnimationBuilder<double>(
+                tween: Tween<double>(
+                  begin: 0.0,
+                  end: _currentIndex == 2 ? 1.0 : 0.0,
                 ),
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                builder: (context, value, child) {
+                  return Transform.scale(
+                    scale: 0.85 + (value * 0.15),
+                    child: Opacity(
+                      opacity: 0.5 + (value * 0.5),
+                      child: SvgPicture.asset(
+                        'assets/icons/history.svg',
+                        width: 24.w,
+                        height: 24.h,
+                        colorFilter: ColorFilter.mode(
+                          _currentIndex == 2
+                              ? AppColors.primary
+                              : AppColors.textSecondary,
+                          BlendMode.srcIn,
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
               label: 'To\'lovlar',
             ),
             BottomNavigationBarItem(
-              icon: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  SvgPicture.asset(
-                    'assets/icons/user.svg',
-                    width: 24.w,
-                    height: 24.h,
-                    colorFilter: ColorFilter.mode(
-                      _currentIndex == 3
-                          ? AppColors.primary
-                          : AppColors.textSecondary,
-                      BlendMode.srcIn,
-                    ),
-                  ),
-                  if (_activeCoursesCount > 0)
-                    Positioned(
-                      right: -8,
-                      top: -4,
-                      child: Container(
-                        padding: EdgeInsets.all(4.w),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              AppColors.success,
-                              AppColors.success.withOpacity(0.8),
-                            ],
-                          ),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white,
-                            width: 1.5,
-                          ),
-                        ),
-                        constraints: BoxConstraints(
-                          minWidth: 18.w,
-                          minHeight: 18.w,
-                        ),
-                        child: Center(
-                          child: Text(
-                            '$_activeCoursesCount',
-                            style: TextStyle(
-                              fontSize: 10.sp,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+              icon: TweenAnimationBuilder<double>(
+                tween: Tween<double>(
+                  begin: 0.0,
+                  end: _currentIndex == 3 ? 1.0 : 0.0,
+                ),
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                builder: (context, value, child) {
+                  return Transform.scale(
+                    scale: 0.85 + (value * 0.15),
+                    child: Opacity(
+                      opacity: 0.5 + (value * 0.5),
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          SvgPicture.asset(
+                            'assets/icons/user.svg',
+                            width: 24.w,
+                            height: 24.h,
+                            colorFilter: ColorFilter.mode(
+                              _currentIndex == 3
+                                  ? AppColors.primary
+                                  : AppColors.textSecondary,
+                              BlendMode.srcIn,
                             ),
                           ),
-                        ),
+                          if (_activeCoursesCount > 0)
+                            Positioned(
+                              right: -8,
+                              top: -4,
+                              child: TweenAnimationBuilder<double>(
+                                tween: Tween<double>(begin: 0.0, end: 1.0),
+                                duration: const Duration(milliseconds: 500),
+                                curve: Curves.elasticOut,
+                                builder: (context, scaleValue, child) {
+                                  return Transform.scale(
+                                    scale: scaleValue,
+                                    child: Container(
+                                      padding: EdgeInsets.all(4.w),
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            AppColors.success,
+                                            AppColors.success.withOpacity(0.8),
+                                          ],
+                                        ),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Colors.white,
+                                          width: 1.5,
+                                        ),
+                                      ),
+                                      constraints: BoxConstraints(
+                                        minWidth: 18.w,
+                                        minHeight: 18.w,
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          '$_activeCoursesCount',
+                                          style: TextStyle(
+                                            fontSize: 10.sp,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                ],
+                  );
+                },
               ),
               label: 'Profil',
             ),

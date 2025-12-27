@@ -101,7 +101,7 @@ class _SplashPageState extends State<SplashPage>
                 ),
                 SizedBox(height: 24.h),
                 Text(
-                  'Course Platform',
+                  'Kurslar',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 28.sp,

@@ -3,8 +3,13 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'dart:convert';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/toast_utils.dart';
+import '../../../../core/utils/page_transition.dart';
 import '../../../../core/widgets/course_rating_widget.dart';
 import '../../data/models/section_model.dart';
 import '../../data/datasources/course_remote_datasource.dart';
@@ -12,6 +17,7 @@ import '../../data/datasources/saved_courses_local_datasource.dart';
 import '../../data/datasources/comment_remote_datasource.dart';
 import '../../../../injection_container.dart';
 import 'checkout_page.dart';
+import 'video_player_page.dart';
 
 class CourseDetailPage extends StatefulWidget {
   final int courseId;
@@ -34,6 +40,8 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   bool _isLoadingRating = false;
   List<dynamic> _comments = [];
   bool _isLoadingComments = false;
+  final ImagePicker _picker = ImagePicker();
+  List<String> _selectedImagePaths = [];
 
   @override
   void initState() {
@@ -59,7 +67,9 @@ class _CourseDetailPageState extends State<CourseDetailPage>
       if (mounted) {
         setState(() {
           final ratingValue = rating['rating'];
-          _userCourseRating = ratingValue != null ? (ratingValue is num ? ratingValue.toDouble() : null) : null;
+          _userCourseRating = ratingValue != null
+              ? (ratingValue is num ? ratingValue.toDouble() : null)
+              : null;
           _isLoadingRating = false;
         });
       }
@@ -90,7 +100,9 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     setState(() => _isLoadingComments = true);
     try {
       final commentDataSource = getIt<CommentRemoteDataSource>();
-      final comments = await commentDataSource.getCommentsByCourseId(widget.courseId);
+      final comments = await commentDataSource.getCommentsByCourseId(
+        widget.courseId,
+      );
       if (mounted) {
         setState(() {
           _comments = comments;
@@ -156,6 +168,33 @@ class _CourseDetailPageState extends State<CourseDetailPage>
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading || courseData == null) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF3572ED),
+          leading: Padding(
+            padding: EdgeInsets.all(8.w),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+                iconSize: 18.sp,
+                padding: EdgeInsets.zero,
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ),
+        ),
+        body: Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      );
+    }
+
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -244,53 +283,87 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                     ),
                   ),
                   SizedBox(height: 12.h),
-                  Row(
+                  Wrap(
+                    spacing: 12.w,
+                    runSpacing: 8.h,
                     children: [
-                      SvgPicture.asset(
-                        'assets/icons/star.svg',
-                        width: 16.w,
-                        height: 16.h,
-                        colorFilter: const ColorFilter.mode(
-                          Colors.amber,
-                          BlendMode.srcIn,
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SvgPicture.asset(
+                            'assets/icons/star.svg',
+                            width: 16.w,
+                            height: 16.h,
+                            colorFilter: const ColorFilter.mode(
+                              Colors.amber,
+                              BlendMode.srcIn,
+                            ),
+                          ),
+                          SizedBox(width: 4.w),
+                          Text(
+                            courseData != null
+                                ? (courseData!['rating']?.toString() ?? '0.0')
+                                : '0.0',
+                            style: GoogleFonts.inter(
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF1A1A1A),
+                            ),
+                          ),
+                        ],
                       ),
-                      SizedBox(width: 4.w),
-                      Text(
-                        '4.8',
-                        style: GoogleFonts.inter(
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xFF1A1A1A),
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.person_outline,
+                            size: 16.w,
+                            color: Colors.grey,
+                          ),
+                          SizedBox(width: 4.w),
+                          Text(
+                            courseData != null
+                                ? '${courseData!['totalStudents'] ?? 0} talaba'
+                                : '0 talaba',
+                            style: GoogleFonts.inter(
+                              fontSize: 14.sp,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
                       ),
-                      SizedBox(width: 12.w),
-                      Icon(
-                        Icons.person_outline,
-                        size: 16.w,
-                        color: Colors.grey,
-                      ),
-                      SizedBox(width: 4.w),
-                      Text(
-                        '250 talaba',
-                        style: GoogleFonts.inter(
-                          fontSize: 14.sp,
-                          color: Colors.grey,
-                        ),
-                      ),
-                      SizedBox(width: 12.w),
-                      Icon(
-                        Icons.play_circle_outline,
-                        size: 16.w,
-                        color: Colors.grey,
-                      ),
-                      SizedBox(width: 4.w),
-                      Text(
-                        '24 video',
-                        style: GoogleFonts.inter(
-                          fontSize: 14.sp,
-                          color: Colors.grey,
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.play_circle_outline,
+                            size: 16.w,
+                            color: Colors.grey,
+                          ),
+                          SizedBox(width: 4.w),
+                          Text(
+                            courseData != null
+                                ? () {
+                                    final sections =
+                                        courseData!['sections']
+                                            as List<dynamic>? ??
+                                        [];
+                                    int totalVideos = 0;
+                                    for (var section in sections) {
+                                      final videos =
+                                          section['videos'] as List<dynamic>? ??
+                                          [];
+                                      totalVideos += videos.length;
+                                    }
+                                    return '$totalVideos video';
+                                  }()
+                                : '0 video',
+                            style: GoogleFonts.inter(
+                              fontSize: 14.sp,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -459,111 +532,148 @@ class _CourseDetailPageState extends State<CourseDetailPage>
           ),
 
           // Tab Content
-          SliverFillRemaining(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildSectionsTab(),
-                _buildCommentsTab(),
-                _buildFaqTab(),
-              ],
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: MediaQuery.of(context).size.height - 250.h,
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildSectionsTab(),
+                  _buildCommentsTab(),
+                  _buildFaqTab(),
+                ],
+              ),
             ),
           ),
         ],
       ),
-      bottomNavigationBar: Container(
-        padding: EdgeInsets.all(16.w),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.primary,
-                  AppColors.primary.withOpacity(0.8),
-                ],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
-              borderRadius: BorderRadius.circular(12.r),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withOpacity(0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: ElevatedButton(
-              onPressed: courseData == null
-                  ? null
-                  : () async {
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => CheckoutPage(course: courseData!),
-                        ),
-                      );
-                      
-                      // If purchase successful, reload course and notify parent
-                      if (result == true && mounted) {
-                        await _loadCourseDetails();
-                      }
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
-                padding: EdgeInsets.symmetric(vertical: 16.h),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.r),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.shopping_cart_outlined,
-                    color: Colors.white,
-                    size: 20.sp,
+      bottomNavigationBar:
+          courseData != null &&
+              (courseData!['isEnrolled'] == true ||
+                  courseData!['isFree'] == true)
+          ? null
+          : Container(
+              padding: EdgeInsets.all(16.w),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, -5),
                   ),
-                  SizedBox(width: 8.w),
-                  Text(
-                    'Kursni Sotib Olish',
-                    style: GoogleFonts.inter(
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                ],
+              ),
+              child: SafeArea(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.primary,
+                        AppColors.primary.withOpacity(0.8),
+                      ],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12.r),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton(
+                    onPressed: courseData == null
+                        ? null
+                        : () async {
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    CheckoutPage(course: courseData!),
+                              ),
+                            );
+
+                            // If purchase successful, reload course and notify parent
+                            if (result == true && mounted) {
+                              await _loadCourseDetails();
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      padding: EdgeInsets.symmetric(vertical: 16.h),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SvgPicture.asset(
+                          'assets/icons/cart_large.svg',
+                          width: 24.w,
+                          height: 24.h,
+                          colorFilter: const ColorFilter.mode(
+                            Colors.white,
+                            BlendMode.srcIn,
+                          ),
+                        ),
+                        SizedBox(width: 8.w),
+                        Text(
+                          'Kursni Sotib Olish',
+                          style: GoogleFonts.inter(
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
-      ),
     );
   }
 
   Widget _buildSectionsTab() {
+    final sections = courseData?['sections'] as List<dynamic>? ?? [];
+
+    if (sections.isEmpty) {
+      return Center(
+        child: Text(
+          'Hali bo\'limlar mavjud emas',
+          style: GoogleFonts.inter(
+            fontSize: 14.sp,
+            color: AppColors.textSecondary,
+          ),
+        ),
+      );
+    }
+
     return ListView.builder(
       padding: EdgeInsets.all(16.w),
-      itemCount: 3,
+      itemCount: sections.length,
       itemBuilder: (context, index) {
-        return _buildSectionCard(index);
+        return _buildSectionCard(sections[index], index);
       },
     );
   }
 
-  Widget _buildSectionCard(int index) {
+  Widget _buildSectionCard(Map<String, dynamic> section, int index) {
+    final videos = section['videos'] as List<dynamic>? ?? [];
+    final title = section['title'] ?? 'Bo\'lim ${index + 1}';
+    final isSectionFree = section['isFree'] == true;
+
+    // Calculate total duration
+    int totalMinutes = 0;
+    for (var video in videos) {
+      totalMinutes += ((video['duration'] ?? 0) as num).toInt();
+    }
+
     return Container(
       margin: EdgeInsets.only(bottom: 16.h),
       decoration: BoxDecoration(
@@ -576,26 +686,35 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         child: ExpansionTile(
           tilePadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
           title: Text(
-            'Bo\'lim ${index + 1}: Flutter Asoslari',
+            title,
             style: GoogleFonts.inter(
               fontSize: 16.sp,
               fontWeight: FontWeight.w600,
             ),
           ),
           subtitle: Text(
-            '5 video • 45 daqiqa',
+            '${videos.length} video • ${totalMinutes} daqiqa',
             style: GoogleFonts.inter(fontSize: 12.sp, color: Colors.grey),
           ),
-          children: List.generate(5, (videoIndex) {
-            final isFree = videoIndex < 2;
-            return _buildVideoItem(videoIndex, isFree);
-          }),
+          children: videos.asMap().entries.map((entry) {
+            final videoIndex = entry.key;
+            final video = entry.value;
+            final isFree = video['isFree'] == true || isSectionFree;
+            return _buildVideoItem(video, videoIndex, isFree);
+          }).toList(),
         ),
       ),
     );
   }
 
-  Widget _buildVideoItem(int index, bool isFree) {
+  Widget _buildVideoItem(Map<String, dynamic> video, int index, bool isFree) {
+    final title = video['title'] ?? 'Video ${index + 1}';
+    final duration = (video['duration'] ?? 0) as num;
+    final durationText = duration > 0
+        ? '${duration.toInt()} daqiqa'
+        : 'Noma\'lum';
+    final videoUrl = video['url'] ?? '';
+
     return Container(
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: Colors.grey.shade200)),
@@ -618,7 +737,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
           ),
         ),
         title: Text(
-          'Video ${index + 1}: Flutter nima?',
+          title,
           style: GoogleFonts.inter(
             fontSize: 14.sp,
             fontWeight: FontWeight.w500,
@@ -627,7 +746,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         subtitle: Row(
           children: [
             Text(
-              '8 daqiqa',
+              durationText,
               style: GoogleFonts.inter(fontSize: 12.sp, color: Colors.grey),
             ),
             if (isFree) ...[
@@ -655,13 +774,15 @@ class _CourseDetailPageState extends State<CourseDetailPage>
           color: isFree ? Colors.green : Colors.grey,
           size: 20.w,
         ),
-        onTap: isFree
+        onTap: isFree || (courseData?['isEnrolled'] == true)
             ? () {
-                // TODO: Navigate to video player page
-                ToastUtils.showInfo(
-                  context,
-                  'Video ${index + 1} ochilmoqda...',
-                );
+                if (videoUrl.isNotEmpty) {
+                  context.pushWithFade(
+                    VideoPlayerPage(videoUrl: videoUrl, title: title),
+                  );
+                } else {
+                  ToastUtils.showError(context, 'Video topilmadi');
+                }
               }
             : () {
                 ToastUtils.showInfo(
@@ -695,155 +816,331 @@ class _CourseDetailPageState extends State<CourseDetailPage>
             ),
             child: CourseRatingWidget(
               userRating: _userCourseRating?.toInt(),
-              averageRating: (courseData!['rating'] is num ? (courseData!['rating'] as num).toDouble() : 0.0),
+              averageRating: (courseData!['rating'] is num
+                  ? (courseData!['rating'] as num).toDouble()
+                  : 0.0),
               totalRatings: courseData!['_count']?['ratings'] ?? 0,
               onRate: _handleCourseRate,
             ),
           ),
-        Expanded(
+        Flexible(
           child: _isLoadingComments
               ? Center(
                   child: CircularProgressIndicator(color: AppColors.primary),
                 )
               : _comments.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(32.w),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.comment_outlined,
-                              size: 64.sp,
-                              color: AppColors.textSecondary.withOpacity(0.5),
-                            ),
-                            SizedBox(height: 16.h),
-                            Text(
-                              'Hozircha izohlar yo\'q',
-                              style: TextStyle(
-                                fontSize: 16.sp,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: EdgeInsets.all(16.w),
-                      itemCount: _comments.length,
-                      itemBuilder: (context, index) {
-                        final comment = _comments[index];
-                        final user = comment['user'];
-                        return Container(
-                margin: EdgeInsets.only(bottom: 16.h),
-                padding: EdgeInsets.all(16.w),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16.r),
-                  border: Border.all(color: AppColors.border),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+              ? SingleChildScrollView(
+                  child: Padding(
+                    padding: EdgeInsets.all(32.w),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        CircleAvatar(
-                          radius: 20.r,
-                          backgroundColor: AppColors.primary.withOpacity(0.1),
-                          child: user?['avatar'] != null && user['avatar'].toString().isNotEmpty
-                              ? ClipOval(
-                                  child: CachedNetworkImage(
-                                    imageUrl: user['avatar'],
-                                    width: 40.r,
-                                    height: 40.r,
-                                    fit: BoxFit.cover,
-                                    errorWidget: (context, url, error) => SvgPicture.asset(
-                                      'assets/icons/user.svg',
-                                      width: 20.w,
-                                      height: 20.h,
-                                      colorFilter: ColorFilter.mode(
-                                        AppColors.primary,
-                                        BlendMode.srcIn,
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              : SvgPicture.asset(
-                                  'assets/icons/user.svg',
-                                  width: 20.w,
-                                  height: 20.h,
-                                  colorFilter: ColorFilter.mode(
-                                    AppColors.primary,
-                                    BlendMode.srcIn,
-                                  ),
-                                ),
-                        ),
-                        SizedBox(width: 12.w),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${user?['firstName'] ?? ''} ${user?['surname'] ?? ''}',
-                                style: GoogleFonts.inter(
-                                  fontSize: 15.sp,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textPrimary,
-                                ),
-                              ),
-                              SizedBox(height: 4.h),
-                              Row(
-                                children: List.generate(5, (starIndex) {
-                                  return Padding(
-                                    padding: EdgeInsets.only(right: 2.w),
-                                    child: SvgPicture.asset(
-                                      'assets/icons/star-circle.svg',
-                                      width: 14.w,
-                                      height: 14.h,
-                                      colorFilter: ColorFilter.mode(
-                                        starIndex < (comment['rating'] ?? 0)
-                                            ? Colors.amber
-                                            : Colors.grey.shade300,
-                                        BlendMode.srcIn,
-                                      ),
-                                    ),
-                                  );
-                                }),
-                              ),
-                            ],
+                        SizedBox(height: 40.h),
+                        SvgPicture.asset(
+                          'assets/icons/chat_round.svg',
+                          width: 64.w,
+                          height: 64.h,
+                          colorFilter: ColorFilter.mode(
+                            AppColors.textSecondary.withOpacity(0.5),
+                            BlendMode.srcIn,
                           ),
                         ),
+                        SizedBox(height: 16.h),
                         Text(
-                          _formatDate(comment['createdAt']),
-                          style: GoogleFonts.inter(
-                            fontSize: 12.sp,
+                          'Hozircha izohlar yo\'q',
+                          style: TextStyle(
+                            fontSize: 16.sp,
                             color: AppColors.textSecondary,
                           ),
                         ),
                       ],
                     ),
-                    SizedBox(height: 12.h),
-                    Text(
-                      comment['comment'] ?? '',
-                      style: GoogleFonts.inter(
-                        fontSize: 14.sp,
-                        color: AppColors.textPrimary,
-                        height: 1.5,
+                  ),
+                )
+              : ListView.builder(
+                  padding: EdgeInsets.all(16.w),
+                  itemCount: _comments.length,
+                  itemBuilder: (context, index) {
+                    final comment = _comments[index];
+                    final user = comment['user'];
+                    return Container(
+                      margin: EdgeInsets.only(bottom: 16.h),
+                      padding: EdgeInsets.all(16.w),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16.r),
+                        border: Border.all(color: AppColors.border),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 20.r,
+                                backgroundColor: AppColors.primary.withOpacity(
+                                  0.1,
+                                ),
+                                child:
+                                    user?['avatar'] != null &&
+                                        user['avatar'].toString().isNotEmpty
+                                    ? ClipOval(
+                                        child: CachedNetworkImage(
+                                          imageUrl:
+                                              user['avatar']
+                                                  .toString()
+                                                  .startsWith('http')
+                                              ? user['avatar']
+                                              : '${AppConstants.baseUrl}${user['avatar']}',
+                                          width: 40.r,
+                                          height: 40.r,
+                                          fit: BoxFit.cover,
+                                          errorWidget: (context, url, error) =>
+                                              SvgPicture.asset(
+                                                'assets/icons/user.svg',
+                                                width: 20.w,
+                                                height: 20.h,
+                                                colorFilter: ColorFilter.mode(
+                                                  AppColors.primary,
+                                                  BlendMode.srcIn,
+                                                ),
+                                              ),
+                                        ),
+                                      )
+                                    : SvgPicture.asset(
+                                        'assets/icons/user.svg',
+                                        width: 20.w,
+                                        height: 20.h,
+                                        colorFilter: ColorFilter.mode(
+                                          AppColors.primary,
+                                          BlendMode.srcIn,
+                                        ),
+                                      ),
+                              ),
+                              SizedBox(width: 12.w),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${user?['firstName'] ?? ''} ${user?['surname'] ?? ''}',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 15.sp,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    SizedBox(height: 4.h),
+                                    Row(
+                                      children: List.generate(5, (starIndex) {
+                                        return Padding(
+                                          padding: EdgeInsets.only(right: 2.w),
+                                          child: SvgPicture.asset(
+                                            'assets/icons/star-circle.svg',
+                                            width: 14.w,
+                                            height: 14.h,
+                                            colorFilter: ColorFilter.mode(
+                                              starIndex <
+                                                      (comment['rating'] ?? 0)
+                                                  ? Colors.amber
+                                                  : Colors.grey.shade300,
+                                              BlendMode.srcIn,
+                                            ),
+                                          ),
+                                        );
+                                      }),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Text(
+                                _formatDate(comment['createdAt']),
+                                style: GoogleFonts.inter(
+                                  fontSize: 12.sp,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 12.h),
+                          Text(
+                            comment['comment'] ?? '',
+                            style: GoogleFonts.inter(
+                              fontSize: 14.sp,
+                              color: AppColors.textPrimary,
+                              height: 1.5,
+                            ),
+                          ),
+                          // Screenshots display
+                          if (comment['screenshots'] != null)
+                            Builder(
+                              builder: (context) {
+                                final screenshots = comment['screenshots'];
+                                List<dynamic> screenshotList = [];
+
+                                print(
+                                  'DEBUG RAW: screenshots type = ${screenshots.runtimeType}',
+                                );
+                                print(
+                                  'DEBUG RAW: screenshots value = $screenshots',
+                                );
+
+                                if (screenshots is List) {
+                                  print(
+                                    'DEBUG: screenshots is List, length: ${screenshots.length}',
+                                  );
+                                  if (screenshots.isNotEmpty) {
+                                    print(
+                                      'DEBUG: First element = ${screenshots[0]}',
+                                    );
+                                    print(
+                                      'DEBUG: First element type = ${screenshots[0].runtimeType}',
+                                    );
+                                  }
+
+                                  // Check if nested array [[...]]
+                                  if (screenshots.isNotEmpty &&
+                                      screenshots[0] is List) {
+                                    print(
+                                      'DEBUG: Found nested array, extracting inner list',
+                                    );
+                                    screenshotList = List<dynamic>.from(
+                                      screenshots[0],
+                                    );
+                                  } else if (screenshots.isNotEmpty &&
+                                      screenshots[0] is String) {
+                                    // Maybe JSON string?
+                                    print('DEBUG: First element is String');
+                                    screenshotList = screenshots;
+                                  } else {
+                                    screenshotList = screenshots;
+                                  }
+                                } else if (screenshots is String &&
+                                    screenshots.isNotEmpty) {
+                                  print('DEBUG: screenshots is String');
+                                  // Parse JSON string to List
+                                  try {
+                                    final parsed = json.decode(screenshots);
+                                    print('DEBUG: Parsed JSON = $parsed');
+                                    if (parsed is List) {
+                                      screenshotList = parsed;
+                                    } else {
+                                      screenshotList = [screenshots];
+                                    }
+                                  } catch (e) {
+                                    print('DEBUG: Failed to parse JSON: $e');
+                                    screenshotList = [screenshots];
+                                  }
+                                }
+
+                                print(
+                                  'Screenshots for comment ${comment['id']}: $screenshotList',
+                                );
+                                print(
+                                  'Screenshot count: ${screenshotList.length}',
+                                );
+
+                                if (screenshotList.isEmpty) {
+                                  return const SizedBox.shrink();
+                                }
+
+                                return Container(
+                                  margin: EdgeInsets.only(top: 8.h),
+                                  height: 60.h,
+                                  child: ListView.builder(
+                                    scrollDirection: Axis.horizontal,
+                                    itemCount: screenshotList.length,
+                                    itemBuilder: (context, imgIndex) {
+                                      final screenshot =
+                                          screenshotList[imgIndex];
+                                      final imageUrl =
+                                          screenshot.toString().startsWith(
+                                            'http',
+                                          )
+                                          ? screenshot
+                                          : '${AppConstants.baseUrl}$screenshot';
+
+                                      print(
+                                        'Screenshot $imgIndex URL: $imageUrl',
+                                      );
+
+                                      return GestureDetector(
+                                        onTap: () {
+                                          _showFullScreenImage(
+                                            context,
+                                            imageUrl,
+                                            screenshotList
+                                                .map(
+                                                  (s) => s.startsWith('http')
+                                                      ? s
+                                                      : '${AppConstants.baseUrl}$s',
+                                                )
+                                                .toList(),
+                                            imgIndex,
+                                          );
+                                        },
+                                        child: Container(
+                                          margin: EdgeInsets.only(right: 8.w),
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(
+                                              8.r,
+                                            ),
+                                            child: CachedNetworkImage(
+                                              imageUrl: imageUrl,
+                                              width: 60.w,
+                                              height: 60.h,
+                                              fit: BoxFit.cover,
+                                              errorListener: (error) {
+                                                print(
+                                                  'Image load error for $imageUrl: $error',
+                                                );
+                                              },
+                                              placeholder: (context, url) =>
+                                                  Container(
+                                                    color: Colors.grey.shade200,
+                                                    child: Center(
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                            strokeWidth: 2,
+                                                            color: AppColors
+                                                                .primary,
+                                                          ),
+                                                    ),
+                                                  ),
+                                              errorWidget:
+                                                  (
+                                                    context,
+                                                    url,
+                                                    error,
+                                                  ) => Container(
+                                                    color: Colors.grey.shade200,
+                                                    child: Icon(
+                                                      Icons.broken_image,
+                                                      color: Colors.grey,
+                                                      size: 20.w,
+                                                    ),
+                                                  ),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
         ),
         // Comment input
         Container(
@@ -859,76 +1156,193 @@ class _CourseDetailPageState extends State<CourseDetailPage>
             ],
           ),
           child: SafeArea(
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _commentController,
-                    maxLines: null,
-                    cursorHeight: 18.h,
-                    cursorColor: AppColors.primary,
-                    decoration: InputDecoration(
-                      hintText: 'Izoh yozing...',
-                      hintStyle: GoogleFonts.inter(
-                        fontSize: 14.sp,
-                        color: AppColors.textSecondary,
-                      ),
-                      filled: true,
-                      fillColor: AppColors.background,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25.r),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 20.w,
-                        vertical: 12.h,
-                      ),
+                // Image preview
+                if (_selectedImagePaths.isNotEmpty)
+                  Container(
+                    margin: EdgeInsets.only(bottom: 8.h, left: 8.w),
+                    child: Wrap(
+                      spacing: 8.w,
+                      runSpacing: 8.h,
+                      children: _selectedImagePaths.asMap().entries.map((
+                        entry,
+                      ) {
+                        final index = entry.key;
+                        final imagePath = entry.value;
+                        return Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(6.r),
+                              child: Image.file(
+                                File(imagePath),
+                                height: 50.h,
+                                width: 50.w,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                            Positioned(
+                              top: -6.h,
+                              right: -6.w,
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _selectedImagePaths.removeAt(index);
+                                  });
+                                },
+                                child: Container(
+                                  width: 20.w,
+                                  height: 20.h,
+                                  decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.2),
+                                        blurRadius: 4,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    Icons.close,
+                                    color: Colors.white,
+                                    size: 12.w,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      }).toList(),
                     ),
                   ),
-                ),
-                SizedBox(width: 8.w),
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AppColors.primary,
-                        AppColors.primary.withOpacity(0.8),
-                      ],
-                    ),
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: SvgPicture.asset(
-                      'assets/icons/send.svg',
-                      width: 20.w,
-                      height: 20.h,
-                      colorFilter: const ColorFilter.mode(
-                        Colors.white,
-                        BlendMode.srcIn,
-                      ),
-                    ),
-                    onPressed: () async {
-                      if (_commentController.text.isNotEmpty) {
-                        try {
-                          final commentDataSource = getIt<CommentRemoteDataSource>();
-                          await commentDataSource.createComment(
-                            courseId: widget.courseId,
-                            comment: _commentController.text,
-                            rating: 5,
+                IntrinsicHeight(
+                  child: Row(
+                    children: [
+                      // Image picker button
+                      IconButton(
+                        icon: Icon(
+                          Icons.image,
+                          color: AppColors.primary,
+                          size: 24.w,
+                        ),
+                        onPressed: () async {
+                          if (_selectedImagePaths.length >= 3) {
+                            ToastUtils.showInfo(
+                              context,
+                              'Maksimal 3 ta rasm tanlash mumkin',
+                            );
+                            return;
+                          }
+                          final XFile? image = await _picker.pickImage(
+                            source: ImageSource.gallery,
+                            maxWidth: 1024,
+                            maxHeight: 1024,
+                            imageQuality: 85,
                           );
-                          
-                          _commentController.clear();
-                          if (mounted) {
-                            ToastUtils.showSuccess(context, 'Izoh muvaffaqiyatli yuborildi!');
-                            await _loadComments(); // Reload comments
+                          if (image != null) {
+                            setState(() {
+                              _selectedImagePaths.add(image.path);
+                            });
                           }
-                        } catch (e) {
-                          if (mounted) {
-                            ToastUtils.showError(context, e);
-                          }
-                        }
-                      }
-                    },
+                        },
+                      ),
+                      SizedBox(width: 8.w),
+                      Expanded(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxHeight: _selectedImagePaths.isEmpty
+                                ? 60.h
+                                : 100.h,
+                          ),
+                          child: TextField(
+                            controller: _commentController,
+                            maxLines: null,
+                            minLines: 1,
+                            cursorHeight: 18.h,
+                            cursorColor: AppColors.primary,
+                            decoration: InputDecoration(
+                              hintText: 'Izoh yozing...',
+                              hintStyle: GoogleFonts.inter(
+                                fontSize: 14.sp,
+                                color: AppColors.textSecondary,
+                              ),
+                              filled: true,
+                              fillColor: AppColors.background,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(25.r),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 20.w,
+                                vertical: 12.h,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 8.w),
+                      SizedBox(
+                        width: 40.w,
+                        height: 40.h,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                AppColors.primary,
+                                AppColors.primary.withOpacity(0.8),
+                              ],
+                            ),
+                            shape: BoxShape.circle,
+                          ),
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            icon: SvgPicture.asset(
+                              'assets/icons/send.svg',
+                              width: 20.w,
+                              height: 20.h,
+                              colorFilter: const ColorFilter.mode(
+                                Colors.white,
+                                BlendMode.srcIn,
+                              ),
+                            ),
+                            onPressed: () async {
+                              if (_commentController.text.isNotEmpty) {
+                                try {
+                                  final commentDataSource =
+                                      getIt<CommentRemoteDataSource>();
+
+                                  await commentDataSource.createComment(
+                                    courseId: widget.courseId,
+                                    comment: _commentController.text,
+                                    rating: 5,
+                                    imagePaths: _selectedImagePaths.isNotEmpty
+                                        ? _selectedImagePaths
+                                        : null,
+                                  );
+
+                                  _commentController.clear();
+                                  setState(() => _selectedImagePaths.clear());
+                                  if (mounted) {
+                                    ToastUtils.showSuccess(
+                                      context,
+                                      'Izoh muvaffaqiyatli yuborildi!',
+                                    );
+                                    await _loadComments(); // Reload comments
+                                  }
+                                } catch (e) {
+                                  if (mounted) {
+                                    ToastUtils.showError(context, e);
+                                  }
+                                }
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -1052,6 +1466,106 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     } catch (e) {
       return '';
     }
+  }
+
+  void _showFullScreenImage(
+    BuildContext context,
+    String initialImage,
+    List screenshots,
+    int initialIndex,
+  ) {
+    final pageController = PageController(initialPage: initialIndex);
+    final currentPage = ValueNotifier<int>(initialIndex);
+    
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            PageView.builder(
+              itemCount: screenshots.length,
+              controller: pageController,
+              onPageChanged: (index) {
+                currentPage.value = index;
+              },
+              itemBuilder: (context, index) {
+                return InteractiveViewer(
+                  minScale: 0.5,
+                  maxScale: 4.0,
+                  panEnabled: true,
+                  scaleEnabled: true,
+                  child: Center(
+                    child: CachedNetworkImage(
+                      imageUrl: screenshots[index],
+                      fit: BoxFit.contain,
+                      placeholder: (context, url) => Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      ),
+                      errorWidget: (context, url, error) => Center(
+                        child: Icon(
+                          Icons.broken_image,
+                          color: Colors.white,
+                          size: 64.w,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+            // Page indicator
+            Positioned(
+              bottom: 40.h,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: ValueListenableBuilder<int>(
+                  valueListenable: currentPage,
+                  builder: (context, page, child) {
+                    return Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 16.w,
+                        vertical: 8.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6),
+                        borderRadius: BorderRadius.circular(20.r),
+                      ),
+                      child: Text(
+                        '${page + 1}/${screenshots.length}',
+                        style: GoogleFonts.inter(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            Positioned(
+              top: 40.h,
+              right: 16.w,
+              child: IconButton(
+                icon: Container(
+                  padding: EdgeInsets.all(8.w),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.close, color: Colors.white, size: 24.w),
+                ),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

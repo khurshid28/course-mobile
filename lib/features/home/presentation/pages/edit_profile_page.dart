@@ -375,7 +375,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             SvgPicture.asset(
-                              'assets/icons/man-face.svg',
+                              'assets/icons/man.svg',
                               width: 52.w,
                               height: 52.h,
                               colorFilter: ColorFilter.mode(
@@ -433,7 +433,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             SvgPicture.asset(
-                              'assets/icons/woman-face.svg',
+                              'assets/icons/woman.svg',
                               width: 52.w,
                               height: 52.h,
                               colorFilter: ColorFilter.mode(

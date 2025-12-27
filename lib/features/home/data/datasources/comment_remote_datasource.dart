@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import '../../../../core/network/dio_client.dart';
 
 class CommentRemoteDataSource {
@@ -18,19 +19,33 @@ class CommentRemoteDataSource {
     required int courseId,
     required String comment,
     required int rating,
-    List<String>? screenshots,
+    List<String>? imagePaths,
   }) async {
     try {
-      print('Creating comment - courseId: $courseId, comment: $comment, rating: $rating');
-      final response = await dioClient.post(
-        '/comments',
-        data: {
-          'courseId': courseId,
-          'comment': comment,
-          'rating': rating,
-          'screenshots': screenshots ?? [],
-        },
+      print(
+        'Creating comment - courseId: $courseId, comment: $comment, rating: $rating',
       );
+
+      FormData formData = FormData.fromMap({
+        'courseId': courseId,
+        'comment': comment,
+        'rating': rating,
+      });
+
+      // Add images if provided
+      if (imagePaths != null && imagePaths.isNotEmpty) {
+        print('Adding ${imagePaths.length} images to screenshots field');
+        for (String imagePath in imagePaths) {
+          final multipartFile = await MultipartFile.fromFile(imagePath);
+          formData.files.add(MapEntry('screenshots', multipartFile));
+          print('Added image: $imagePath');
+        }
+      }
+
+      print('FormData fields: ${formData.fields}');
+      print('FormData files: ${formData.files.length} files');
+
+      final response = await dioClient.post('/comments', data: formData);
       print('Comment created successfully: ${response.data}');
       return response.data as Map<String, dynamic>;
     } catch (e) {

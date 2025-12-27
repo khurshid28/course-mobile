@@ -28,7 +28,7 @@ class MyApp extends StatelessWidget {
       splitScreenMode: true,
       builder: (context, child) {
         return MaterialApp(
-          title: 'Course Platform',
+          title: 'Kurslar',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
           home: const SplashPage(),

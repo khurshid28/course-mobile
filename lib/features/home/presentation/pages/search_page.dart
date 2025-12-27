@@ -6,6 +6,7 @@ import 'package:lottie/lottie.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/shimmer_widgets.dart';
 import '../../../../core/utils/format_utils.dart';
+import '../../../../core/utils/page_transition.dart';
 import '../../data/datasources/course_remote_datasource.dart';
 import '../../data/datasources/category_remote_datasource.dart';
 import '../../../../injection_container.dart';
@@ -210,8 +211,12 @@ class _SearchPageState extends State<SearchPage>
               (c) => c['id'] == _selectedCategoryId,
               orElse: () => <String, dynamic>{},
             );
-            final selectedName = (selectedCategory['nameUz'] ?? selectedCategory['name'] ?? '').toString().toLowerCase();
-            return categoryName.contains(selectedName) || selectedName.contains(categoryName);
+            final selectedName =
+                (selectedCategory['nameUz'] ?? selectedCategory['name'] ?? '')
+                    .toString()
+                    .toLowerCase();
+            return categoryName.contains(selectedName) ||
+                selectedName.contains(categoryName);
           });
         } else if (categoriesData is List) {
           // If list, check if any category id matches
@@ -243,7 +248,7 @@ class _SearchPageState extends State<SearchPage>
         toolbarHeight: 80.h,
         automaticallyImplyLeading: false,
         backgroundColor: AppColors.primary,
- 
+
         elevation: 0,
         // flexibleSpace: Container(
         //   decoration: BoxDecoration(
@@ -268,7 +273,7 @@ class _SearchPageState extends State<SearchPage>
             controller: _searchController,
             cursorHeight: 20.h,
             cursorColor: Colors.white,
-            
+
             style: TextStyle(
               fontSize: 15.sp,
               fontWeight: FontWeight.w500,
@@ -285,7 +290,7 @@ class _SearchPageState extends State<SearchPage>
               // border: InputBorder.none,
               // enabledBorder: InputBorder.none,
               // focusedBorder: InputBorder.none,
-               border: OutlineInputBorder(
+              border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(24.r),
                 borderSide: BorderSide.none,
               ),
@@ -314,10 +319,7 @@ class _SearchPageState extends State<SearchPage>
               ),
               suffixIcon: _searchController.text.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(
-                        Icons.clear,
-                        color: Colors.white,
-                      ),
+                      icon: const Icon(Icons.clear, color: Colors.white),
                       onPressed: () {
                         _searchController.clear();
                         _performSearch('');
@@ -348,10 +350,7 @@ class _SearchPageState extends State<SearchPage>
               controller: _tabController,
               indicator: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    Colors.white,
-                    Colors.white.withOpacity(0.95),
-                  ],
+                  colors: [Colors.white, Colors.white.withOpacity(0.95)],
                 ),
                 borderRadius: BorderRadius.circular(10.r),
                 boxShadow: [
@@ -380,10 +379,7 @@ class _SearchPageState extends State<SearchPage>
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        Icons.school_outlined,
-                        size: 18.sp,
-                      ),
+                      Icon(Icons.school_outlined, size: 18.sp),
                       SizedBox(width: 6.w),
                       const Text('Kurslar'),
                     ],
@@ -646,7 +642,8 @@ class _SearchPageState extends State<SearchPage>
     }
 
     // Show filtered teachers if category selected or search applied
-    final displayTeachers = (_selectedCategoryId != null || _searchController.text.isNotEmpty)
+    final displayTeachers =
+        (_selectedCategoryId != null || _searchController.text.isNotEmpty)
         ? _teacherResults
         : _allTeachers;
 
@@ -859,7 +856,7 @@ class _SearchPageState extends State<SearchPage>
     // Get teacher categories - handle both String and List
     List<String> categoryList = [];
     final categoriesData = teacher['categories'];
-    
+
     if (categoriesData != null) {
       if (categoriesData is String) {
         // If it's a string, split by comma

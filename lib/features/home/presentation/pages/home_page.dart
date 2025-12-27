@@ -7,6 +7,7 @@ import 'package:shimmer/shimmer.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/toast_utils.dart';
 import '../../../../core/utils/format_utils.dart';
+import '../../../../core/utils/page_transition.dart';
 import '../../../../core/widgets/shimmer_widgets.dart';
 import '../../data/datasources/course_remote_datasource.dart';
 import '../../data/datasources/category_remote_datasource.dart';
@@ -80,9 +81,9 @@ class _HomePageState extends State<HomePage> {
     try {
       final courseDataSource = getIt<CourseRemoteDataSource>();
       await courseDataSource.toggleSaveCourse(courseId);
-      
+
       if (!mounted) return;
-      
+
       // Update local state
       setState(() {
         final index = _courses.indexWhere((c) => c['id'] == courseId);
@@ -119,7 +120,8 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             onPressed: () {
-              final mainPageState = context.findAncestorStateOfType<MainPageState>();
+              final mainPageState = context
+                  .findAncestorStateOfType<MainPageState>();
               if (mainPageState != null) {
                 mainPageState.changeTab(1);
               }
@@ -138,12 +140,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const NotificationsPage(),
-                    ),
-                  );
+                  context.pushWithFade(const NotificationsPage());
                 },
               ),
               Positioned(
@@ -169,58 +166,420 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-            // Banner Carousel
-            _isLoading || _banners.isEmpty
-                ? Container(
-                    width: double.infinity,
-                    height: 200.h,
-                    margin: EdgeInsets.all(16.w),
-                    decoration: BoxDecoration(
-                      color: AppColors.border,
-                      borderRadius: BorderRadius.circular(20.r),
-                    ),
-                  )
-                : Column(
-                    children: [
-                      CarouselSlider(
-                        options: CarouselOptions(
-                          height: 200.h,
-                          autoPlay: true,
-                          autoPlayInterval: const Duration(seconds: 4),
-                          autoPlayAnimationDuration: const Duration(
-                            milliseconds: 800,
+              // Banner Carousel
+              _isLoading || _banners.isEmpty
+                  ? Container(
+                      width: double.infinity,
+                      height: 200.h,
+                      margin: EdgeInsets.all(16.w),
+                      decoration: BoxDecoration(
+                        color: AppColors.border,
+                        borderRadius: BorderRadius.circular(20.r),
+                      ),
+                    )
+                  : Column(
+                      children: [
+                        CarouselSlider(
+                          options: CarouselOptions(
+                            height: 200.h,
+                            autoPlay: true,
+                            autoPlayInterval: const Duration(seconds: 4),
+                            autoPlayAnimationDuration: const Duration(
+                              milliseconds: 800,
+                            ),
+                            enlargeCenterPage: true,
+                            viewportFraction: 0.9,
+                            onPageChanged: (index, reason) {
+                              setState(() {
+                                _currentBannerIndex = index;
+                              });
+                            },
                           ),
-                          enlargeCenterPage: true,
-                          viewportFraction: 0.9,
-                          onPageChanged: (index, reason) {
-                            setState(() {
-                              _currentBannerIndex = index;
-                            });
-                          },
-                        ),
-                        items: _banners.map((banner) {
-                          return Builder(
-                            builder: (BuildContext context) {
-                              return Container(
-                                width: MediaQuery.of(context).size.width,
-                                margin: EdgeInsets.symmetric(horizontal: 5.w),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(20.r),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.15),
-                                      blurRadius: 20,
-                                      offset: const Offset(0, 10),
+                          items: _banners.map((banner) {
+                            return Builder(
+                              builder: (BuildContext context) {
+                                return Container(
+                                  width: MediaQuery.of(context).size.width,
+                                  margin: EdgeInsets.symmetric(horizontal: 5.w),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(20.r),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.15),
+                                        blurRadius: 20,
+                                        offset: const Offset(0, 10),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(20.r),
+                                    child: Stack(
+                                      children: [
+                                        Positioned.fill(
+                                          child: CachedNetworkImage(
+                                            imageUrl: banner['image'] ?? '',
+                                            fit: BoxFit.cover,
+                                            placeholder: (context, url) =>
+                                                Container(
+                                                  color: AppColors.border,
+                                                ),
+                                            errorWidget:
+                                                (context, url, error) =>
+                                                    Container(
+                                                      color: AppColors.primary
+                                                          .withOpacity(0.1),
+                                                    ),
+                                          ),
+                                        ),
+                                        Positioned.fill(
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                colors: [
+                                                  Colors.black.withOpacity(0.6),
+                                                  Colors.transparent,
+                                                ],
+                                                begin: Alignment.bottomCenter,
+                                                end: Alignment.topCenter,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        Positioned(
+                                          bottom: 20.h,
+                                          left: 20.w,
+                                          right: 20.w,
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                banner['title'] ?? '',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 24.sp,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              SizedBox(height: 4.h),
+                                              Text(
+                                                banner['description'] ?? '',
+                                                style: TextStyle(
+                                                  color: Colors.white
+                                                      .withOpacity(0.9),
+                                                  fontSize: 14.sp,
+                                                ),
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
+                                  ),
+                                );
+                              },
+                            );
+                          }).toList(),
+                        ),
+                        SizedBox(height: 12.h),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: _banners.asMap().entries.map((entry) {
+                            return Container(
+                              width: _currentBannerIndex == entry.key
+                                  ? 24.w
+                                  : 8.w,
+                              height: 8.h,
+                              margin: EdgeInsets.symmetric(horizontal: 4.w),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(4.r),
+                                color: _currentBannerIndex == entry.key
+                                    ? AppColors.primary
+                                    : AppColors.border,
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+
+              // O'qituvchilar bo'limi
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Mashhur o\'qituvchilar',
+                        style: TextStyle(
+                          fontSize: 20.sp,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 8.w),
+                    TextButton(
+                      onPressed: () {
+                        context.pushWithFade(const TeachersPage());
+                      },
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 12.w,
+                          vertical: 8.h,
+                        ),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text('Hammasi', style: TextStyle(fontSize: 14.sp)),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Teachers List
+              _isLoading
+                  ? SizedBox(
+                      height: 200.h,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        padding: EdgeInsets.symmetric(horizontal: 16.w),
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: 4,
+                        itemBuilder: (context, index) {
+                          return const TeacherCardHorizontalShimmer();
+                        },
+                      ),
+                    )
+                  : _teachers.isEmpty
+                  ? Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 16.w,
+                        vertical: 20.h,
+                      ),
+                      child: Center(
+                        child: Text(
+                          'O\'qituvchilar topilmadi',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    )
+                  : SizedBox(
+                      height: 200.h,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        padding: EdgeInsets.symmetric(horizontal: 16.w),
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: _teachers.length > 5 ? 5 : _teachers.length,
+                        itemBuilder: (context, index) {
+                          final teacher = _teachers[index];
+                          final hasAvatar =
+                              teacher['avatar'] != null &&
+                              teacher['avatar'].toString().trim().isNotEmpty;
+
+                          return GestureDetector(
+                            onTap: () {
+                              context.pushWithFade(
+                                TeacherDetailPage(teacherId: teacher['id']),
+                              );
+                            },
+                            child: Container(
+                              width: 150.w,
+                              margin: EdgeInsets.only(
+                                right: 16.w,
+                                top: 8.h,
+                                bottom: 8.h,
+                              ),
+                              padding: EdgeInsets.all(16.w),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16.r),
+                                border: Border.all(
+                                  color: AppColors.border.withOpacity(0.3),
                                 ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(20.r),
-                                  child: Stack(
-                                    children: [
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.06),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: AppColors.primary,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: CircleAvatar(
+                                      radius: 36.r,
+                                      backgroundColor: AppColors.secondary,
+                                      child: hasAvatar
+                                          ? ClipOval(
+                                              child: CachedNetworkImage(
+                                                imageUrl: teacher['avatar'],
+                                                width: 72.r,
+                                                height: 72.r,
+                                                fit: BoxFit.cover,
+                                                placeholder: (context, url) =>
+                                                    Shimmer.fromColors(
+                                                      baseColor:
+                                                          AppColors.shimmerBase,
+                                                      highlightColor: AppColors
+                                                          .shimmerHighlight,
+                                                      child: Container(
+                                                        width: 72.r,
+                                                        height: 72.r,
+                                                        decoration:
+                                                            const BoxDecoration(
+                                                              color:
+                                                                  Colors.white,
+                                                              shape: BoxShape
+                                                                  .circle,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                errorWidget:
+                                                    (context, url, error) =>
+                                                        Text(
+                                                          teacher['name']
+                                                                  ?.substring(
+                                                                    0,
+                                                                    1,
+                                                                  ) ??
+                                                              'T',
+                                                          style: TextStyle(
+                                                            fontSize: 28.sp,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            color: AppColors
+                                                                .primary,
+                                                          ),
+                                                        ),
+                                              ),
+                                            )
+                                          : Text(
+                                              teacher['name']?.substring(
+                                                    0,
+                                                    1,
+                                                  ) ??
+                                                  'T',
+                                              style: TextStyle(
+                                                fontSize: 28.sp,
+                                                fontWeight: FontWeight.bold,
+                                                color: AppColors.primary,
+                                              ),
+                                            ),
+                                    ),
+                                  ),
+                                  SizedBox(height: 12.h),
+                                  Flexible(
+                                    child: Text(
+                                      teacher['name'] ?? '',
+                                      style: TextStyle(
+                                        fontSize: 13.sp,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  SizedBox(height: 6.h),
+                                  Text(
+                                    '${teacher['_count']?['courses'] ?? 0} kurs',
+                                    style: TextStyle(
+                                      fontSize: 12.sp,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+
+              SizedBox(height: 24.h),
+
+              // Categories
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.w),
+                child: Text(
+                  'Kategoriyalar',
+                  style: TextStyle(
+                    fontSize: 20.sp,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              SizedBox(height: 12.h),
+              _isLoading
+                  ? SizedBox(
+                      height: 120.h,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        padding: EdgeInsets.symmetric(horizontal: 16.w),
+                        itemCount: 5,
+                        itemBuilder: (context, index) {
+                          return Padding(
+                            padding: EdgeInsets.only(right: 12.w),
+                            child: const CategoryItemShimmer(),
+                          );
+                        },
+                      ),
+                    )
+                  : SizedBox(
+                      height: 120.h,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        padding: EdgeInsets.symmetric(horizontal: 16.w),
+                        itemCount: _categories.length,
+                        itemBuilder: (context, index) {
+                          final category = _categories[index];
+
+                          return GestureDetector(
+                            onTap: () {
+                              final mainPageState = context
+                                  .findAncestorStateOfType<MainPageState>();
+                              if (mainPageState != null) {
+                                mainPageState.updateSearchCategory(
+                                  category['id'],
+                                );
+                                mainPageState.changeTab(1);
+                              }
+                            },
+                            child: Container(
+                              width: 140.w,
+                              margin: EdgeInsets.only(right: 12.w),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16.r),
+                                border: Border.all(color: AppColors.border),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(16.r),
+                                child: Stack(
+                                  children: [
+                                    // Background Image
+                                    if (category['image'] != null)
                                       Positioned.fill(
                                         child: CachedNetworkImage(
-                                          imageUrl: banner['image'] ?? '',
+                                          imageUrl: category['image'],
                                           fit: BoxFit.cover,
                                           placeholder: (context, url) =>
                                               Container(
@@ -233,433 +592,100 @@ class _HomePageState extends State<HomePage> {
                                               ),
                                         ),
                                       ),
-                                      Positioned.fill(
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              colors: [
-                                                Colors.black.withOpacity(0.6),
-                                                Colors.transparent,
-                                              ],
-                                              begin: Alignment.bottomCenter,
-                                              end: Alignment.topCenter,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      Positioned(
-                                        bottom: 20.h,
-                                        left: 20.w,
-                                        right: 20.w,
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              banner['title'] ?? '',
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 24.sp,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            SizedBox(height: 4.h),
-                                            Text(
-                                              banner['description'] ?? '',
-                                              style: TextStyle(
-                                                color: Colors.white.withOpacity(
-                                                  0.9,
-                                                ),
-                                                fontSize: 14.sp,
-                                              ),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          );
-                        }).toList(),
-                      ),
-                      SizedBox(height: 12.h),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: _banners.asMap().entries.map((entry) {
-                          return Container(
-                            width: _currentBannerIndex == entry.key
-                                ? 24.w
-                                : 8.w,
-                            height: 8.h,
-                            margin: EdgeInsets.symmetric(horizontal: 4.w),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(4.r),
-                              color: _currentBannerIndex == entry.key
-                                  ? AppColors.primary
-                                  : AppColors.border,
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ),
 
-            // O'qituvchilar bo'limi
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Mashhur o\'qituvchilar',
-                    style: TextStyle(
-                      fontSize: 20.sp,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const TeachersPage()),
-                      );
-                    },
-                    child: const Text('Barchasini ko\'rish'),
-                  ),
-                ],
-              ),
-            ),
-
-            // Teachers List
-            _isLoading
-                ? SizedBox(
-                    height: 200.h,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: EdgeInsets.symmetric(horizontal: 16.w),
-                      physics: const BouncingScrollPhysics(),
-                      itemCount: 4,
-                      itemBuilder: (context, index) {
-                        return const TeacherCardHorizontalShimmer();
-                      },
-                    ),
-                  )
-                : _teachers.isEmpty
-                ? Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 16.w,
-                      vertical: 20.h,
-                    ),
-                    child: Center(
-                      child: Text(
-                        'O\'qituvchilar topilmadi',
-                        style: TextStyle(
-                          fontSize: 14.sp,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  )
-                : SizedBox(
-                    height: 200.h,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: EdgeInsets.symmetric(horizontal: 16.w),
-                      physics: const BouncingScrollPhysics(),
-                      itemCount: _teachers.length > 5 ? 5 : _teachers.length,
-                      itemBuilder: (context, index) {
-                        final teacher = _teachers[index];
-                        final hasAvatar =
-                            teacher['avatar'] != null &&
-                            teacher['avatar'].toString().trim().isNotEmpty;
-
-                        return GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    TeacherDetailPage(teacherId: teacher['id']),
-                              ),
-                            );
-                          },
-                          child: Container(
-                            width: 150.w,
-                            margin: EdgeInsets.only(right: 16.w, top: 8.h, bottom: 8.h),
-                            padding: EdgeInsets.all(16.w),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16.r),
-                              border: Border.all(
-                                color: AppColors.border.withOpacity(0.3),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.06),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: AppColors.primary,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: CircleAvatar(
-                                    radius: 36.r,
-                                    backgroundColor: AppColors.secondary,
-                                    child: hasAvatar
-                                        ? ClipOval(
-                                            child: CachedNetworkImage(
-                                              imageUrl: teacher['avatar'],
-                                              width: 72.r,
-                                              height: 72.r,
-                                              fit: BoxFit.cover,
-                                              placeholder: (context, url) =>
-                                                  Shimmer.fromColors(
-                                                    baseColor: AppColors.shimmerBase,
-                                                    highlightColor: AppColors.shimmerHighlight,
-                                                    child: Container(
-                                                      width: 72.r,
-                                                      height: 72.r,
-                                                      decoration: const BoxDecoration(
-                                                        color: Colors.white,
-                                                        shape: BoxShape.circle,
-                                                      ),
-                                                    ),
-                                                  ),
-                                              errorWidget:
-                                                  (context, url, error) => Text(
-                                                    teacher['name']?.substring(
-                                                          0,
-                                                          1,
-                                                        ) ??
-                                                        'T',
-                                                    style: TextStyle(
-                                                      fontSize: 28.sp,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      color: AppColors.primary,
-                                                    ),
-                                                  ),
-                                            ),
-                                          )
-                                        : Text(
-                                            teacher['name']?.substring(0, 1) ??
-                                                'T',
-                                            style: TextStyle(
-                                              fontSize: 28.sp,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.primary,
-                                            ),
-                                          ),
-                                  ),
-                                ),
-                                SizedBox(height: 12.h),
-                                Flexible(
-                                  child: Text(
-                                    teacher['name'] ?? '',
-                                    style: TextStyle(
-                                      fontSize: 13.sp,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.textPrimary,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                SizedBox(height: 6.h),
-                                Text(
-                                  '${teacher['_count']?['courses'] ?? 0} kurs',
-                                  style: TextStyle(
-                                    fontSize: 12.sp,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-
-            SizedBox(height: 24.h),
-
-            // Categories
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.w),
-              child: Text(
-                'Kategoriyalar',
-                style: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.bold),
-              ),
-            ),
-            SizedBox(height: 12.h),
-            _isLoading
-                ? SizedBox(
-                    height: 120.h,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: EdgeInsets.symmetric(horizontal: 16.w),
-                      itemCount: 5,
-                      itemBuilder: (context, index) {
-                        return Padding(
-                          padding: EdgeInsets.only(right: 12.w),
-                          child: const CategoryItemShimmer(),
-                        );
-                      },
-                    ),
-                  )
-                : SizedBox(
-                    height: 120.h,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: EdgeInsets.symmetric(horizontal: 16.w),
-                      itemCount: _categories.length,
-                      itemBuilder: (context, index) {
-                        final category = _categories[index];
-
-                        return GestureDetector(
-                          onTap: () {
-                            final mainPageState = context.findAncestorStateOfType<MainPageState>();
-                            if (mainPageState != null) {
-                              mainPageState.updateSearchCategory(category['id']);
-                              mainPageState.changeTab(1);
-                            }
-                          },
-                          child: Container(
-                            width: 140.w,
-                            margin: EdgeInsets.only(right: 12.w),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(16.r),
-                              border: Border.all(color: AppColors.border),
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(16.r),
-                              child: Stack(
-                                children: [
-                                  // Background Image
-                                  if (category['image'] != null)
+                                    // Gradient Overlay
                                     Positioned.fill(
-                                      child: CachedNetworkImage(
-                                        imageUrl: category['image'],
-                                        fit: BoxFit.cover,
-                                        placeholder: (context, url) =>
-                                            Container(color: AppColors.border),
-                                        errorWidget: (context, url, error) =>
-                                            Container(
-                                              color: AppColors.primary
-                                                  .withOpacity(0.1),
-                                            ),
-                                      ),
-                                    ),
-
-                                  // Gradient Overlay
-                                  Positioned.fill(
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [
-                                            Colors.black.withOpacity(0.6),
-                                            Colors.black.withOpacity(0.3),
-                                          ],
-                                          begin: Alignment.bottomCenter,
-                                          end: Alignment.topCenter,
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              Colors.black.withOpacity(0.6),
+                                              Colors.black.withOpacity(0.3),
+                                            ],
+                                            begin: Alignment.bottomCenter,
+                                            end: Alignment.topCenter,
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  ),
 
-                                  // Category Name
-                                  Positioned(
-                                    bottom: 12.h,
-                                    left: 12.w,
-                                    right: 12.w,
-                                    child: Text(
-                                      category['nameUz'] ?? category['name'],
-                                      style: TextStyle(
-                                        fontSize: 14.sp,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.white,
-                                        shadows: [
-                                          Shadow(
-                                            color: Colors.black.withOpacity(0.5),
-                                            blurRadius: 4,
-                                          ),
-                                        ],
+                                    // Category Name
+                                    Positioned(
+                                      bottom: 12.h,
+                                      left: 12.w,
+                                      right: 12.w,
+                                      child: Text(
+                                        category['nameUz'] ?? category['name'],
+                                        style: TextStyle(
+                                          fontSize: 14.sp,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white,
+                                          shadows: [
+                                            Shadow(
+                                              color: Colors.black.withOpacity(
+                                                0.5,
+                                              ),
+                                              blurRadius: 4,
+                                            ),
+                                          ],
+                                        ),
+                                        textAlign: TextAlign.center,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                      textAlign: TextAlign.center,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        );
+                          );
+                        },
+                      ),
+                    ),
+              SizedBox(height: 24.h),
+
+              // Popular Courses
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.w),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Mashhur kurslar',
+                      style: TextStyle(
+                        fontSize: 20.sp,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {},
+                      child: const Text('Barchasini ko\'rish'),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 12.h),
+
+              _isLoading
+                  ? ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: EdgeInsets.symmetric(horizontal: 16.w),
+                      itemCount: 3,
+                      itemBuilder: (context, index) {
+                        return const CourseCardShimmer();
+                      },
+                    )
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: EdgeInsets.symmetric(horizontal: 16.w),
+                      itemCount: _courses.length,
+                      itemBuilder: (context, index) {
+                        final course = _courses[index];
+                        return _buildCourseCard(course);
                       },
                     ),
-                  ),
-            SizedBox(height: 24.h),
-
-            // Popular Courses
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.w),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Mashhur kurslar',
-                    style: TextStyle(
-                      fontSize: 20.sp,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () {},
-                    child: const Text('Barchasini ko\'rish'),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 12.h),
-
-            _isLoading
-                ? ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    padding: EdgeInsets.symmetric(horizontal: 16.w),
-                    itemCount: 3,
-                    itemBuilder: (context, index) {
-                      return const CourseCardShimmer();
-                    },
-                  )
-                : ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    padding: EdgeInsets.symmetric(horizontal: 16.w),
-                    itemCount: _courses.length,
-                    itemBuilder: (context, index) {
-                      final course = _courses[index];
-                      return _buildCourseCard(course);
-                    },
-                  ),
             ],
           ),
         ),
@@ -673,19 +699,17 @@ class _HomePageState extends State<HomePage> {
 
     return GestureDetector(
       onTap: () async {
-        final result = await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => CourseDetailPage(courseId: course['id']),
-          ),
+        final result = await context.pushWithFade(
+          CourseDetailPage(courseId: course['id']),
         );
-        
+
         // Reload data and refresh main page badge
         _loadData();
-        
+
         // Find MainPage and refresh active courses count
         if (result == true && mounted) {
-          final mainPageState = context.findAncestorStateOfType<MainPageState>();
+          final mainPageState = context
+              .findAncestorStateOfType<MainPageState>();
           mainPageState?.refreshActiveCourses();
         }
       },
@@ -930,5 +954,4 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-
 }

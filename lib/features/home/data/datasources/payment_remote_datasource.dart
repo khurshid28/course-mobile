@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import '../../../../core/network/dio_client.dart';
 
 class PaymentRemoteDataSource {
@@ -9,6 +10,12 @@ class PaymentRemoteDataSource {
     try {
       final response = await _dioClient.get('/payments/history');
       return response.data as List<dynamic>;
+    } on DioException catch (e) {
+      if (e.response?.data != null && e.response?.data is Map) {
+        final errorData = e.response!.data as Map<String, dynamic>;
+        throw Exception(errorData['message'] ?? 'Xatolik yuz berdi');
+      }
+      throw Exception('To\'lov tarixini yuklashda xatolik');
     } catch (e) {
       print('Error getting payment history: $e');
       rethrow;
@@ -28,6 +35,13 @@ class PaymentRemoteDataSource {
       }
       final response = await _dioClient.post('/payments', data: data);
       return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      print('DioException creating payment: ${e.response?.data}');
+      if (e.response?.data != null && e.response?.data is Map) {
+        final errorData = e.response!.data as Map<String, dynamic>;
+        throw Exception(errorData['message'] ?? 'To\'lov amalga oshirilmadi');
+      }
+      throw Exception('To\'lov amalga oshirilmadi');
     } catch (e) {
       print('Error creating payment: $e');
       rethrow;

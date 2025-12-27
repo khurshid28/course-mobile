@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/toast_utils.dart';
 import '../../../../core/utils/format_utils.dart';
+import '../../../../core/utils/page_transition.dart';
 import '../../../../core/widgets/shimmer_widgets.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../injection_container.dart';
@@ -136,6 +137,14 @@ class _ProfilePageState extends State<ProfilePage> {
       // Upload image
       final imageUrl = await authDataSource.uploadImage(image.path);
 
+      // Clear old image cache first if exists
+      if (_user?.avatar != null) {
+        final oldFullImageUrl = _user!.avatar!.startsWith('http')
+            ? _user!.avatar!
+            : '${AppConstants.baseUrl}${_user!.avatar!}';
+        await CachedNetworkImage.evictFromCache(oldFullImageUrl);
+      }
+
       // Update profile with new avatar
       await authDataSource.completeProfile(
         firstName: _user!.firstName!,
@@ -146,8 +155,26 @@ class _ProfilePageState extends State<ProfilePage> {
         avatar: imageUrl,
       );
 
-      // Reload profile
+      // Clear new image cache
+      final fullImageUrl = imageUrl.startsWith('http')
+          ? imageUrl
+          : '${AppConstants.baseUrl}$imageUrl';
+
+      // Clear all image caches
+      await CachedNetworkImage.evictFromCache(fullImageUrl);
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
+
+      // Small delay to ensure cache is cleared
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      // Reload profile with force refresh
       await _loadUserData();
+
+      // Force rebuild by updating state
+      if (mounted) {
+        setState(() {});
+      }
 
       if (!mounted) return;
 
@@ -297,6 +324,11 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     final avatarUrl = _user?.avatar;
+    final fullAvatarUrl = avatarUrl != null && avatarUrl.isNotEmpty
+        ? (avatarUrl.startsWith('http')
+              ? avatarUrl
+              : '${AppConstants.baseUrl}$avatarUrl')
+        : null;
     final userName = _user != null
         ? '${_user!.firstName ?? ''} ${_user!.surname ?? ''}'.trim()
         : 'Foydalanuvchi';
@@ -387,26 +419,49 @@ class _ProfilePageState extends State<ProfilePage> {
                                       ],
                                     ),
                                     child: CircleAvatar(
+                                      key: ValueKey(
+                                        '${fullAvatarUrl ?? 'no-avatar'}_${DateTime.now().millisecondsSinceEpoch}',
+                                      ),
                                       radius: 50.r,
                                       backgroundColor: Colors.white,
-                                      backgroundImage:
-                                          avatarUrl != null &&
-                                              avatarUrl.isNotEmpty
-                                          ? CachedNetworkImageProvider(
-                                              avatarUrl,
+                                      child: fullAvatarUrl != null
+                                          ? ClipOval(
+                                              child: CachedNetworkImage(
+                                                imageUrl: fullAvatarUrl,
+                                                width: 100.r,
+                                                height: 100.r,
+                                                fit: BoxFit.cover,
+                                                placeholder: (context, url) =>
+                                                    Center(
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                            color: AppColors
+                                                                .primary,
+                                                            strokeWidth: 2,
+                                                          ),
+                                                    ),
+                                                errorWidget:
+                                                    (context, url, error) =>
+                                                        Text(
+                                                          userInitials,
+                                                          style: TextStyle(
+                                                            fontSize: 32.sp,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            color: AppColors
+                                                                .primary,
+                                                          ),
+                                                        ),
+                                              ),
                                             )
-                                          : null,
-                                      child:
-                                          avatarUrl == null || avatarUrl.isEmpty
-                                          ? Text(
+                                          : Text(
                                               userInitials,
                                               style: TextStyle(
                                                 fontSize: 32.sp,
                                                 fontWeight: FontWeight.bold,
                                                 color: AppColors.primary,
                                               ),
-                                            )
-                                          : null,
+                                            ),
                                     ),
                                   ),
                                   Positioned(
@@ -867,11 +922,7 @@ class _ProfilePageState extends State<ProfilePage> {
             borderRadius: BorderRadius.circular(12.r),
           ),
           child: icon != null
-              ? Icon(
-                  icon,
-                  size: 20.sp,
-                  color: color ?? AppColors.primary,
-                )
+              ? Icon(icon, size: 20.sp, color: color ?? AppColors.primary)
               : SvgPicture.asset(
                   iconPath!,
                   width: 24.w,

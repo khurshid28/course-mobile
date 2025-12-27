@@ -143,7 +143,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                       'assets/icons/user.svg',
                       width: 24.w,
                       height: 24.h,
-                      colorFilter: ColorFilter.mode(
+                      colorFilter: const ColorFilter.mode(
                         AppColors.textSecondary,
                         BlendMode.srcIn,
                       ),
@@ -168,7 +168,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                       'assets/icons/user.svg',
                       width: 24.w,
                       height: 24.h,
-                      colorFilter: ColorFilter.mode(
+                      colorFilter: const ColorFilter.mode(
                         AppColors.textSecondary,
                         BlendMode.srcIn,
                       ),
@@ -194,7 +194,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                       'assets/icons/mail.svg',
                       width: 24.w,
                       height: 24.h,
-                      colorFilter: ColorFilter.mode(
+                      colorFilter: const ColorFilter.mode(
                         AppColors.textSecondary,
                         BlendMode.srcIn,
                       ),
@@ -236,12 +236,16 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                         ),
                         child: Column(
                           children: [
-                            Icon(
-                              Icons.male,
-                              size: 40.sp,
-                              color: _selectedGender == 'MALE'
-                                  ? AppColors.primary
-                                  : AppColors.textSecondary,
+                             SvgPicture.asset(
+                              'assets/icons/man.svg',
+                              width: 40.w,
+                              height: 40.h,
+                              colorFilter: ColorFilter.mode(
+                                _selectedGender == 'MALE'
+                                    ? AppColors.primary
+                                    : AppColors.textSecondary,
+                                BlendMode.srcIn,
+                              ),
                             ),
                             SizedBox(height: 8.h),
                             Text(
@@ -281,12 +285,16 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                         ),
                         child: Column(
                           children: [
-                            Icon(
-                              Icons.female,
-                              size: 40.sp,
-                              color: _selectedGender == 'FEMALE'
-                                  ? AppColors.primary
-                                  : AppColors.textSecondary,
+                            SvgPicture.asset(
+                              'assets/icons/woman.svg',
+                              width: 40.w,
+                              height: 40.h,
+                              colorFilter: ColorFilter.mode(
+                                _selectedGender == 'FEMALE'
+                                    ? AppColors.primary
+                                    : AppColors.textSecondary,
+                                BlendMode.srcIn,
+                              ),
                             ),
                             SizedBox(height: 8.h),
                             Text(
@@ -319,7 +327,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                       'assets/icons/location-check.svg',
                       width: 24.w,
                       height: 24.h,
-                      colorFilter: ColorFilter.mode(
+                      colorFilter: const ColorFilter.mode(
                         AppColors.textSecondary,
                         BlendMode.srcIn,
                       ),
