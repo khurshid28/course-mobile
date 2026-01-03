@@ -32,8 +32,8 @@ class AuthRemoteDataSource {
       final authResponse = AuthResponse.fromJson(response.data);
 
       // Save token
-      if (authResponse.token != null && authResponse.token!.isNotEmpty) {
-        _dioClient.setToken(authResponse.token!);
+      if (authResponse.token.isNotEmpty) {
+        _dioClient.setToken(authResponse.token);
         AppLogger.success('Token saved');
       }
 

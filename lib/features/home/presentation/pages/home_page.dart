@@ -13,6 +13,7 @@ import '../../data/datasources/course_remote_datasource.dart';
 import '../../data/datasources/category_remote_datasource.dart';
 import '../../data/datasources/banner_remote_datasource.dart';
 import '../../data/datasources/teacher_remote_datasource.dart';
+import '../../data/datasources/notification_remote_datasource.dart';
 import '../../../../injection_container.dart';
 import 'notifications_page.dart';
 import 'teachers_page.dart';
@@ -27,18 +28,49 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _isLoading = false;
   List<Map<String, dynamic>> _courses = [];
   List<Map<String, dynamic>> _categories = [];
   List<Map<String, dynamic>> _banners = [];
   List<Map<String, dynamic>> _teachers = [];
   int _currentBannerIndex = 0;
+  int _unreadNotificationCount = 0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadData();
+    _loadUnreadNotificationCount();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Reload when returning to this page
+      _loadUnreadNotificationCount();
+    }
+  }
+
+  Future<void> _loadUnreadNotificationCount() async {
+    try {
+      final dataSource = getIt<NotificationRemoteDataSource>();
+      final result = await dataSource.getUnreadCount();
+      if (mounted) {
+        setState(() {
+          _unreadNotificationCount = result['count'] ?? 0;
+        });
+      }
+    } catch (e) {
+      // Silently fail
+    }
   }
 
   Future<void> _loadData() async {
@@ -139,23 +171,48 @@ class _HomePageState extends State<HomePage> {
                     BlendMode.srcIn,
                   ),
                 ),
-                onPressed: () {
-                  context.pushWithFade(const NotificationsPage());
+                onPressed: () async {
+                  await context.pushWithFade(const NotificationsPage());
+                  // Reload unread count after returning from notifications
+                  _loadUnreadNotificationCount();
                 },
               ),
-              Positioned(
-                right: 8.w,
-                top: 8.h,
-                child: Container(
-                  width: 8.w,
-                  height: 8.h,
-                  decoration: BoxDecoration(
-                    color: AppColors.error,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 1.5),
+              if (_unreadNotificationCount > 0)
+                Positioned(
+                  right: 8.w,
+                  top: 8.h,
+                  child: Container(
+                    padding: EdgeInsets.all(4.w),
+                    constraints: BoxConstraints(
+                      minWidth: 18.w,
+                      minHeight: 18.w,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.error,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.error.withOpacity(0.4),
+                          blurRadius: 4,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        _unreadNotificationCount > 99
+                            ? '99+'
+                            : _unreadNotificationCount.toString(),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10.sp,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
         ],

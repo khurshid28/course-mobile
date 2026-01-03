@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'dart:io' as io;
 import '../../../../core/network/dio_client.dart';
 
 class CommentRemoteDataSource {
@@ -19,7 +20,7 @@ class CommentRemoteDataSource {
     required int courseId,
     required String comment,
     required int rating,
-    List<String>? imagePaths,
+    List<String>? images,
   }) async {
     try {
       print(
@@ -33,11 +34,18 @@ class CommentRemoteDataSource {
       });
 
       // Add images if provided
-      if (imagePaths != null && imagePaths.isNotEmpty) {
-        print('Adding ${imagePaths.length} images to screenshots field');
-        for (String imagePath in imagePaths) {
-          final multipartFile = await MultipartFile.fromFile(imagePath);
-          formData.files.add(MapEntry('screenshots', multipartFile));
+      if (images != null && images.isNotEmpty) {
+        print('Adding ${images.length} images');
+        for (String imagePath in images) {
+          final file = io.File(imagePath);
+          final fileName = imagePath.split('/').last;
+          final bytes = await file.readAsBytes();
+
+          final multipartFile = MultipartFile.fromBytes(
+            bytes,
+            filename: fileName,
+          );
+          formData.files.add(MapEntry('images', multipartFile));
           print('Added image: $imagePath');
         }
       }

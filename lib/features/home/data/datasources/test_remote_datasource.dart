@@ -60,7 +60,7 @@ class TestRemoteDataSource {
 
   Future<String> downloadCertificate(String certificateNo) async {
     try {
-      final response = await dioClient.get(
+      await dioClient.get(
         '/tests/certificates/$certificateNo/download',
       );
       // Return download URL or trigger download

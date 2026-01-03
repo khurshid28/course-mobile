@@ -6,7 +6,6 @@ import 'package:lottie/lottie.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/shimmer_widgets.dart';
 import '../../../../core/utils/format_utils.dart';
-import '../../../../core/utils/page_transition.dart';
 import '../../data/datasources/course_remote_datasource.dart';
 import '../../data/datasources/category_remote_datasource.dart';
 import '../../../../injection_container.dart';
@@ -26,8 +25,6 @@ class _SearchPageState extends State<SearchPage>
     with SingleTickerProviderStateMixin {
   final _searchController = TextEditingController();
   late TabController _tabController;
-  bool _isSearching = false;
-  bool _isLoadingCategories = false;
   bool _isLoadingCourses = false;
   bool _isLoadingTeachers = false;
   List<Map<String, dynamic>> _courseResults = [];
@@ -80,10 +77,6 @@ class _SearchPageState extends State<SearchPage>
   }
 
   Future<void> _loadCategories() async {
-    setState(() {
-      _isLoadingCategories = true;
-    });
-
     try {
       final categoryDataSource = getIt<CategoryRemoteDataSource>();
       final categoriesData = await categoryDataSource.getAllCategories();
@@ -92,14 +85,9 @@ class _SearchPageState extends State<SearchPage>
 
       setState(() {
         _categories = categoriesData.cast<Map<String, dynamic>>();
-        _isLoadingCategories = false;
       });
     } catch (e) {
       if (!mounted) return;
-
-      setState(() {
-        _isLoadingCategories = false;
-      });
     }
   }
 
@@ -115,7 +103,6 @@ class _SearchPageState extends State<SearchPage>
       setState(() {
         _courseResults = [];
         _teacherResults = [];
-        _isSearching = false;
       });
       return;
     }

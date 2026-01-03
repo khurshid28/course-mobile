@@ -154,7 +154,6 @@ class _ResultsPageState extends State<ResultsPage> {
     final testResult = certificate['testResult'] as Map<String, dynamic>?;
     final test = testResult?['test'] as Map<String, dynamic>?;
     final course = test?['course'] as Map<String, dynamic>?;
-    final user = certificate['user'] as Map<String, dynamic>?;
 
     final courseName = course?['title'] ?? 'Kurs';
     final score = testResult?['score'] ?? 0;
@@ -278,7 +277,7 @@ class _ResultsPageState extends State<ResultsPage> {
                 onPressed: () async {
                   try {
                     final testDataSource = getIt<TestRemoteDataSource>();
-                    final url = await testDataSource.downloadCertificate(
+                    await testDataSource.downloadCertificate(
                       certificateNo,
                     );
 

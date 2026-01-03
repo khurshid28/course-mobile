@@ -5,7 +5,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/toast_utils.dart';
 import '../../../../core/utils/format_utils.dart';
-import '../../../../core/widgets/shimmer_widgets.dart';
 import '../../../../core/widgets/teacher_rating_widget.dart';
 import '../../data/datasources/teacher_remote_datasource.dart';
 import '../../../../injection_container.dart';

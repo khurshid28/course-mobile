@@ -5,12 +5,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'dart:convert';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/toast_utils.dart';
-import '../../../../core/utils/page_transition.dart';
 import '../../../../core/widgets/course_rating_widget.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../data/models/section_model.dart';
 import '../../data/datasources/course_remote_datasource.dart';
 import '../../data/datasources/saved_courses_local_datasource.dart';
@@ -34,14 +32,15 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   List<SectionModel> sections = [];
   bool isLoading = true;
   bool isSaved = false;
+  bool _isEnrolled = false;
+  bool _isLoadingRating = false;
   Map<String, dynamic>? courseData;
   final TextEditingController _commentController = TextEditingController();
   double? _userCourseRating;
-  bool _isLoadingRating = false;
   List<dynamic> _comments = [];
   bool _isLoadingComments = false;
+  List<XFile> _selectedImages = [];
   final ImagePicker _picker = ImagePicker();
-  List<String> _selectedImagePaths = [];
 
   @override
   void initState() {
@@ -50,6 +49,34 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     _loadCourseDetails();
     _loadUserCourseRating();
     _loadComments();
+  }
+
+  String _formatDuration(dynamic durationValue) {
+    if (durationValue == null) return '0:00';
+
+    // Convert to int (handle both int and String types)
+    int seconds;
+    if (durationValue is int) {
+      seconds = durationValue;
+    } else if (durationValue is String) {
+      seconds = int.tryParse(durationValue) ?? 0;
+    } else if (durationValue is double) {
+      seconds = durationValue.toInt();
+    } else {
+      return '0:00';
+    }
+
+    if (seconds == 0) return '0:00';
+
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds % 3600) ~/ 60;
+    final secs = seconds % 60;
+
+    if (hours > 0) {
+      return '${hours}:${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+    } else {
+      return '${minutes}:${secs.toString().padLeft(2, '0')}';
+    }
   }
 
   @override
@@ -87,12 +114,42 @@ class _CourseDetailPageState extends State<CourseDetailPage>
       if (mounted) {
         setState(() => _userCourseRating = rating.toDouble());
         ToastUtils.showSuccess(context, 'Baho muvaffaqiyatli saqlandi!');
-        await _loadCourseDetails(); // Refresh to get updated average
+        // Reload both course details and user rating
+        await Future.wait([_loadCourseDetails(), _loadUserCourseRating()]);
       }
     } catch (e) {
+      print('Rating error: $e');
       if (mounted) {
-        ToastUtils.showError(context, 'Baholashda xatolik yuz berdi');
+        ToastUtils.showError(context, 'Baholashda xatolik: ${e.toString()}');
       }
+    }
+  }
+
+  String _calculateTotalDuration() {
+    if (courseData == null || courseData!['sections'] == null) return 'N/A';
+
+    int totalMinutes = 0;
+    final sections = courseData!['sections'] as List<dynamic>;
+
+    for (var section in sections) {
+      if (section['videos'] != null) {
+        final videos = section['videos'] as List<dynamic>;
+        for (var video in videos) {
+          if (video['duration'] != null) {
+            totalMinutes += (video['duration'] is int
+                ? video['duration'] as int
+                : int.tryParse(video['duration'].toString()) ?? 0);
+          }
+        }
+      }
+    }
+
+    if (totalMinutes < 60) {
+      return '$totalMinutes daqiqa';
+    } else {
+      final hours = totalMinutes ~/ 60;
+      final minutes = totalMinutes % 60;
+      return minutes > 0 ? '$hours soat $minutes daqiqa' : '$hours soat';
     }
   }
 
@@ -117,6 +174,72 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     }
   }
 
+  Future<void> _pickImages() async {
+    if (_selectedImages.length >= 5) {
+      ToastUtils.showInfo(context, 'Maksimum 5 ta rasm yuklash mumkin');
+      return;
+    }
+
+    try {
+      final remainingSlots = 5 - _selectedImages.length;
+      final List<XFile> images = await _picker.pickMultiImage();
+
+      if (images.isNotEmpty) {
+        setState(() {
+          _selectedImages.addAll(images.take(remainingSlots));
+        });
+
+        if (images.length > remainingSlots) {
+          ToastUtils.showInfo(
+            context,
+            'Faqat $remainingSlots ta rasm qo\'shildi',
+          );
+        }
+      }
+    } catch (e) {
+      ToastUtils.showError(context, 'Rasm tanlashda xatolik: $e');
+    }
+  }
+
+  void _removeImage(int index) {
+    setState(() {
+      _selectedImages.removeAt(index);
+    });
+  }
+
+  Future<void> _submitComment() async {
+    if (_commentController.text.trim().isEmpty) {
+      ToastUtils.showError(context, 'Izoh yozish majburiy');
+      return;
+    }
+
+    try {
+      final commentDataSource = getIt<CommentRemoteDataSource>();
+
+      // Convert XFile paths to string list for backend
+      final imagePaths = _selectedImages.map((file) => file.path).toList();
+
+      await commentDataSource.createComment(
+        courseId: widget.courseId,
+        comment: _commentController.text.trim(),
+        rating: 0,
+        images: imagePaths.isNotEmpty ? imagePaths : null,
+      );
+
+      if (!mounted) return;
+
+      ToastUtils.showSuccess(context, 'Izohingiz qo\'shildi');
+      _commentController.clear();
+      setState(() {
+        _selectedImages.clear();
+      });
+      _loadComments();
+    } catch (e) {
+      if (!mounted) return;
+      ToastUtils.showError(context, 'Xatolik yuz berdi: $e');
+    }
+  }
+
   Future<void> _loadCourseDetails() async {
     try {
       final dataSource = getIt<CourseRemoteDataSource>();
@@ -124,12 +247,24 @@ class _CourseDetailPageState extends State<CourseDetailPage>
 
       if (!mounted) return;
 
+      print('=== COURSE DETAIL DEBUG ===');
+      print('Full course data: $course');
+      print('isEnrolled value: ${course['isEnrolled']}');
+      print('isEnrolled type: ${course['isEnrolled'].runtimeType}');
+      print('isFree value: ${course['isFree']}');
+      print('isFree type: ${course['isFree'].runtimeType}');
+      print('Course rating: ${course['rating']}');
+      print('Total ratings count: ${course['_count']?['ratings']}');
+      print('=========================');
+
       setState(() {
         courseData = course;
+        _isEnrolled = course['isEnrolled'] == true;
         isSaved = course['isSaved'] ?? false;
         isLoading = false;
       });
     } catch (e) {
+      print('Load course error: $e');
       if (!mounted) return;
       setState(() => isLoading = false);
       ToastUtils.showError(context, e);
@@ -166,35 +301,62 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (isLoading || courseData == null) {
-      return Scaffold(
-        backgroundColor: Colors.white,
-        appBar: AppBar(
-          backgroundColor: const Color(0xFF3572ED),
-          leading: Padding(
-            padding: EdgeInsets.all(8.w),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8.r),
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
-                iconSize: 18.sp,
-                padding: EdgeInsets.zero,
-                onPressed: () => Navigator.pop(context),
-              ),
-            ),
-          ),
-        ),
-        body: Center(
-          child: CircularProgressIndicator(color: AppColors.primary),
-        ),
-      );
+  String _formatRating(dynamic rating) {
+    if (rating == null) return '0.0';
+    if (rating is num) return rating.toDouble().toStringAsFixed(1);
+    if (rating is String) {
+      final parsed = double.tryParse(rating);
+      return parsed?.toStringAsFixed(1) ?? '0.0';
+    }
+    return '0.0';
+  }
+
+  String _formatPrice(dynamic price) {
+    if (price == null) return '0';
+    if (price is num) return price.toString();
+    if (price is String) return price;
+    return '0';
+  }
+
+  bool _hasOldPrice(dynamic oldPrice) {
+    if (oldPrice == null) return false;
+    if (oldPrice is num) return oldPrice > 0;
+    if (oldPrice is String) {
+      final parsed = num.tryParse(oldPrice);
+      return parsed != null && parsed > 0;
+    }
+    return false;
+  }
+
+  bool _shouldShowPurchaseButton() {
+    if (courseData == null) {
+      print('DEBUG: Purchase button hidden - courseData is null');
+      return false;
     }
 
+    final isEnrolled = courseData!['isEnrolled'];
+    final isFree = courseData!['isFree'];
+
+    print(
+      'DEBUG: _shouldShowPurchaseButton - isEnrolled: $isEnrolled (${isEnrolled.runtimeType}), isFree: $isFree (${isFree.runtimeType})',
+    );
+
+    // Show purchase button only if NOT enrolled AND NOT free
+    if (isEnrolled == true || isFree == true) {
+      print(
+        'DEBUG: Purchase button hidden - isEnrolled=$isEnrolled, isFree=$isFree',
+      );
+      return false;
+    }
+
+    print(
+      'DEBUG: Purchase button SHOWN - isEnrolled=$isEnrolled, isFree=$isFree',
+    );
+    return true;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -275,152 +437,157 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Flutter - Mobil Ilovalar Yaratish',
+                    courseData?['title'] ?? 'Kurs nomi yuklanmoqda...',
                     style: GoogleFonts.inter(
                       fontSize: 20.sp,
                       fontWeight: FontWeight.w600,
                       color: const Color(0xFF1A1A1A),
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   SizedBox(height: 12.h),
-                  Wrap(
-                    spacing: 12.w,
-                    runSpacing: 8.h,
+                  Row(
                     children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SvgPicture.asset(
-                            'assets/icons/star.svg',
-                            width: 16.w,
-                            height: 16.h,
-                            colorFilter: const ColorFilter.mode(
-                              Colors.amber,
-                              BlendMode.srcIn,
-                            ),
-                          ),
-                          SizedBox(width: 4.w),
-                          Text(
-                            courseData != null
-                                ? (courseData!['rating']?.toString() ?? '0.0')
-                                : '0.0',
-                            style: GoogleFonts.inter(
-                              fontSize: 14.sp,
-                              fontWeight: FontWeight.w500,
-                              color: const Color(0xFF1A1A1A),
-                            ),
-                          ),
-                        ],
+                      SvgPicture.asset(
+                        'assets/icons/star.svg',
+                        width: 16.w,
+                        height: 16.h,
+                        colorFilter: const ColorFilter.mode(
+                          Colors.amber,
+                          BlendMode.srcIn,
+                        ),
                       ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.person_outline,
-                            size: 16.w,
-                            color: Colors.grey,
-                          ),
-                          SizedBox(width: 4.w),
-                          Text(
-                            courseData != null
-                                ? '${courseData!['totalStudents'] ?? 0} talaba'
-                                : '0 talaba',
-                            style: GoogleFonts.inter(
-                              fontSize: 14.sp,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
+                      SizedBox(width: 4.w),
+                      Text(
+                        courseData?['rating'] != null
+                            ? _formatRating(courseData!['rating'])
+                            : '0.0',
+                        style: GoogleFonts.inter(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF1A1A1A),
+                        ),
                       ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.play_circle_outline,
-                            size: 16.w,
-                            color: Colors.grey,
-                          ),
-                          SizedBox(width: 4.w),
-                          Text(
-                            courseData != null
-                                ? () {
-                                    final sections =
-                                        courseData!['sections']
-                                            as List<dynamic>? ??
-                                        [];
-                                    int totalVideos = 0;
-                                    for (var section in sections) {
-                                      final videos =
-                                          section['videos'] as List<dynamic>? ??
-                                          [];
-                                      totalVideos += videos.length;
-                                    }
-                                    return '$totalVideos video';
-                                  }()
-                                : '0 video',
-                            style: GoogleFonts.inter(
-                              fontSize: 14.sp,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
+                      SizedBox(width: 12.w),
+                      Icon(
+                        Icons.person_outline,
+                        size: 16.w,
+                        color: Colors.grey,
+                      ),
+                      SizedBox(width: 4.w),
+                      Text(
+                        '${(courseData?['_count']?['enrollments'] ?? 0).toString()} talaba',
+                        style: GoogleFonts.inter(
+                          fontSize: 14.sp,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      SizedBox(width: 12.w),
+                      Icon(
+                        Icons.play_circle_outline,
+                        size: 16.w,
+                        color: Colors.grey,
+                      ),
+                      SizedBox(width: 4.w),
+                      Text(
+                        '${(courseData?['_count']?['sections'] ?? 0).toString()} video',
+                        style: GoogleFonts.inter(
+                          fontSize: 14.sp,
+                          color: Colors.grey,
+                        ),
                       ),
                     ],
                   ),
                   SizedBox(height: 16.h),
                   Row(
                     children: [
-                      Container(
-                        width: 40.w,
-                        height: 40.h,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          image: const DecorationImage(
-                            image: NetworkImage(
-                              'https://i.pravatar.cc/150?img=1',
-                            ),
-                            fit: BoxFit.cover,
-                          ),
-                        ),
+                      CircleAvatar(
+                        radius: 20.r,
+                        backgroundColor: AppColors.primary.withOpacity(0.1),
+                        child:
+                            courseData?['teacher']?['avatar'] != null &&
+                                courseData!['teacher']['avatar']
+                                    .toString()
+                                    .isNotEmpty
+                            ? ClipOval(
+                                child: CachedNetworkImage(
+                                  imageUrl: courseData!['teacher']['avatar'],
+                                  width: 40.r,
+                                  height: 40.r,
+                                  fit: BoxFit.cover,
+                                  errorWidget: (context, url, error) =>
+                                      SvgPicture.asset(
+                                        'assets/icons/user.svg',
+                                        width: 20.w,
+                                        height: 20.h,
+                                        colorFilter: ColorFilter.mode(
+                                          AppColors.primary,
+                                          BlendMode.srcIn,
+                                        ),
+                                      ),
+                                ),
+                              )
+                            : SvgPicture.asset(
+                                'assets/icons/user.svg',
+                                width: 20.w,
+                                height: 20.h,
+                                colorFilter: ColorFilter.mode(
+                                  AppColors.primary,
+                                  BlendMode.srcIn,
+                                ),
+                              ),
                       ),
                       SizedBox(width: 12.w),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Alisher Usmonov',
-                            style: GoogleFonts.inter(
-                              fontSize: 14.sp,
-                              fontWeight: FontWeight.w500,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${courseData?['teacher']?['firstName'] ?? ''} ${courseData?['teacher']?['surname'] ?? ''}',
+                              style: GoogleFonts.inter(
+                                fontSize: 14.sp,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                          Text(
-                            'Senior Flutter Developer',
-                            style: GoogleFonts.inter(
-                              fontSize: 12.sp,
-                              color: Colors.grey,
+                            Text(
+                              courseData?['teacher']?['bio'] ?? 'O\'qituvchi',
+                              style: GoogleFonts.inter(
+                                fontSize: 12.sp,
+                                color: Colors.grey,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                       const Spacer(),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text(
-                            '400,000 so\'m',
-                            style: GoogleFonts.inter(
-                              fontSize: 13.sp,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.grey,
-                              decoration: TextDecoration.lineThrough,
-                              decorationColor: Colors.grey,
-                              decorationThickness: 2,
+                          if (_hasOldPrice(courseData?['oldPrice']))
+                            Text(
+                              '${_formatPrice(courseData!['oldPrice'])} so\'m',
+                              style: GoogleFonts.inter(
+                                fontSize: 13.sp,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey,
+                                decoration: TextDecoration.lineThrough,
+                                decorationColor: Colors.grey,
+                                decorationThickness: 2,
+                              ),
                             ),
-                          ),
-                          SizedBox(height: 2.h),
+                          if (_hasOldPrice(courseData?['oldPrice']))
+                            SizedBox(height: 2.h),
                           Text(
-                            '200,000 so\'m',
+                            courseData?['isFree'] == true
+                                ? 'Bepul'
+                                : courseData?['price'] != null
+                                ? '${_formatPrice(courseData!['price'])} so\'m'
+                                : '0 so\'m',
                             style: GoogleFonts.inter(
                               fontSize: 18.sp,
                               fontWeight: FontWeight.w700,
@@ -433,6 +600,33 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                   ),
 
                   SizedBox(height: 20.h),
+
+                  // Course Rating Widget
+                  if (courseData != null)
+                    Container(
+                      margin: EdgeInsets.only(bottom: 20.h),
+                      padding: EdgeInsets.all(20.w),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16.r),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.06),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: CourseRatingWidget(
+                        userRating: _userCourseRating?.toInt(),
+                        averageRating: (courseData!['rating'] is num
+                            ? (courseData!['rating'] as num).toDouble()
+                            : 0.0),
+                        totalRatings: courseData!['_count']?['ratings'] ?? 0,
+                        onRate: _handleCourseRate,
+                      ),
+                    ),
 
                   // Course Parameters Card
                   Container(
@@ -454,7 +648,8 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                                 icon: Icons.topic_outlined,
                                 iconColor: const Color(0xFF8B5CF6),
                                 label: 'Mavzular',
-                                value: '8 ta',
+                                value:
+                                    '${(courseData?['_count']?['sections'] ?? 0).toString()} ta',
                               ),
                             ),
                             Container(
@@ -467,7 +662,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                                 icon: Icons.access_time,
                                 iconColor: const Color(0xFFEC4899),
                                 label: 'Davomiyligi',
-                                value: '12 soat',
+                                value: _calculateTotalDuration(),
                               ),
                             ),
                           ],
@@ -482,7 +677,8 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                                 icon: Icons.signal_cellular_alt,
                                 iconColor: const Color(0xFFF59E0B),
                                 label: 'Daraja',
-                                value: 'O\'rta',
+                                value:
+                                    courseData?['level']?.toString() ?? 'N/A',
                               ),
                             ),
                             Container(
@@ -532,27 +728,20 @@ class _CourseDetailPageState extends State<CourseDetailPage>
           ),
 
           // Tab Content
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: MediaQuery.of(context).size.height - 250.h,
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildSectionsTab(),
-                  _buildCommentsTab(),
-                  _buildFaqTab(),
-                ],
-              ),
+          SliverFillRemaining(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildSectionsTab(),
+                _buildCommentsTab(),
+                _buildFaqTab(),
+              ],
             ),
           ),
         ],
       ),
-      bottomNavigationBar:
-          courseData != null &&
-              (courseData!['isEnrolled'] == true ||
-                  courseData!['isFree'] == true)
-          ? null
-          : Container(
+      bottomNavigationBar: _shouldShowPurchaseButton()
+          ? Container(
               padding: EdgeInsets.all(16.w),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -596,9 +785,25 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                               ),
                             );
 
-                            // If purchase successful, reload course and notify parent
-                            if (result == true && mounted) {
+                            // Always reload course data after returning from checkout
+                            if (mounted) {
+                              setState(() {
+                                isLoading = true;
+                              });
                               await _loadCourseDetails();
+                              await _loadUserCourseRating();
+                              if (mounted) {
+                                setState(() {
+                                  isLoading = false;
+                                });
+                                // Show success message if purchase was successful
+                                if (result == true) {
+                                  ToastUtils.showSuccess(
+                                    context,
+                                    'Kurs muvaffaqiyatli sotib olindi!',
+                                  );
+                                }
+                              }
                             }
                           },
                     style: ElevatedButton.styleFrom(
@@ -612,14 +817,10 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        SvgPicture.asset(
-                          'assets/icons/cart_large.svg',
-                          width: 24.w,
-                          height: 24.h,
-                          colorFilter: const ColorFilter.mode(
-                            Colors.white,
-                            BlendMode.srcIn,
-                          ),
+                        Icon(
+                          Icons.shopping_cart_outlined,
+                          color: Colors.white,
+                          size: 20.sp,
                         ),
                         SizedBox(width: 8.w),
                         Text(
@@ -635,7 +836,8 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                   ),
                 ),
               ),
-            ),
+            )
+          : null,
     );
   }
 
@@ -665,14 +867,6 @@ class _CourseDetailPageState extends State<CourseDetailPage>
 
   Widget _buildSectionCard(Map<String, dynamic> section, int index) {
     final videos = section['videos'] as List<dynamic>? ?? [];
-    final title = section['title'] ?? 'Bo\'lim ${index + 1}';
-    final isSectionFree = section['isFree'] == true;
-
-    // Calculate total duration
-    int totalMinutes = 0;
-    for (var video in videos) {
-      totalMinutes += ((video['duration'] ?? 0) as num).toInt();
-    }
 
     return Container(
       margin: EdgeInsets.only(bottom: 16.h),
@@ -686,34 +880,35 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         child: ExpansionTile(
           tilePadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
           title: Text(
-            title,
+            section['title']?.toString() ?? 'Bo\'lim ${index + 1}',
             style: GoogleFonts.inter(
               fontSize: 16.sp,
               fontWeight: FontWeight.w600,
             ),
           ),
           subtitle: Text(
-            '${videos.length} video • ${totalMinutes} daqiqa',
+            '${videos.length} video',
             style: GoogleFonts.inter(fontSize: 12.sp, color: Colors.grey),
           ),
           children: videos.asMap().entries.map((entry) {
             final videoIndex = entry.key;
             final video = entry.value;
-            final isFree = video['isFree'] == true || isSectionFree;
-            return _buildVideoItem(video, videoIndex, isFree);
+            return _buildVideoItem(video, videoIndex);
           }).toList(),
         ),
       ),
     );
   }
 
-  Widget _buildVideoItem(Map<String, dynamic> video, int index, bool isFree) {
-    final title = video['title'] ?? 'Video ${index + 1}';
-    final duration = (video['duration'] ?? 0) as num;
-    final durationText = duration > 0
-        ? '${duration.toInt()} daqiqa'
-        : 'Noma\'lum';
-    final videoUrl = video['url'] ?? '';
+  Widget _buildVideoItem(Map<String, dynamic> video, int index) {
+    final isEnrolled = courseData?['isEnrolled'] == true;
+    final isCourseFreee = courseData?['isFree'] == true;
+    final isFree = video['isFree'] == true;
+    final canAccess = isFree || isEnrolled || isCourseFreee;
+
+    print(
+      'DEBUG: Video ${index + 1} - isEnrolled: $isEnrolled, isCourseFreee: $isCourseFreee, videoIsFree: $isFree, canAccess: $canAccess',
+    );
 
     return Container(
       decoration: BoxDecoration(
@@ -725,19 +920,19 @@ class _CourseDetailPageState extends State<CourseDetailPage>
           width: 40.w,
           height: 40.h,
           decoration: BoxDecoration(
-            color: isFree
+            color: canAccess
                 ? const Color(0xFF3572ED).withOpacity(0.1)
                 : Colors.grey.shade100,
             borderRadius: BorderRadius.circular(8.r),
           ),
           child: Icon(
             Icons.play_arrow,
-            color: isFree ? const Color(0xFF3572ED) : Colors.grey,
+            color: canAccess ? const Color(0xFF3572ED) : Colors.grey,
             size: 24.w,
           ),
         ),
         title: Text(
-          title,
+          video['title']?.toString() ?? 'Video ${index + 1}',
           style: GoogleFonts.inter(
             fontSize: 14.sp,
             fontWeight: FontWeight.w500,
@@ -745,8 +940,10 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         ),
         subtitle: Row(
           children: [
+            Icon(Icons.access_time, size: 12.sp, color: Colors.grey),
+            SizedBox(width: 4.w),
             Text(
-              durationText,
+              _formatDuration(video['duration']),
               style: GoogleFonts.inter(fontSize: 12.sp, color: Colors.grey),
             ),
             if (isFree) ...[
@@ -770,19 +967,50 @@ class _CourseDetailPageState extends State<CourseDetailPage>
           ],
         ),
         trailing: Icon(
-          isFree ? Icons.lock_open : Icons.lock_outline,
-          color: isFree ? Colors.green : Colors.grey,
+          canAccess ? Icons.lock_open : Icons.lock_outline,
+          color: canAccess ? Colors.green : Colors.grey,
           size: 20.w,
         ),
-        onTap: isFree || (courseData?['isEnrolled'] == true)
+        onTap: canAccess
             ? () {
-                if (videoUrl.isNotEmpty) {
-                  context.pushWithFade(
-                    VideoPlayerPage(videoUrl: videoUrl, title: title),
-                  );
-                } else {
-                  ToastUtils.showError(context, 'Video topilmadi');
+                // Get all sections and videos
+                final sections =
+                    courseData?['sections'] as List<dynamic>? ?? [];
+
+                if (sections.isEmpty) {
+                  ToastUtils.showError(context, 'Videolar topilmadi');
+                  return;
                 }
+
+                // Calculate global video index
+                int globalIndex = 0;
+                bool found = false;
+
+                for (var section in sections) {
+                  if (section['videos'] != null) {
+                    final sectionVideos = section['videos'] as List<dynamic>;
+                    for (int i = 0; i < sectionVideos.length; i++) {
+                      if (i == index && !found) {
+                        found = true;
+                        break;
+                      }
+                      if (!found) globalIndex++;
+                    }
+                    if (found) break;
+                  }
+                }
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => VideoPlayerPage(
+                      sections: sections.cast<Map<String, dynamic>>(),
+                      initialIndex: globalIndex,
+                      title: video['title'] ?? 'Video ${index + 1}',
+                      courseTitle: courseData?['title'] ?? '',
+                    ),
+                  ),
+                );
               }
             : () {
                 ToastUtils.showInfo(
@@ -795,55 +1023,171 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   }
 
   Widget _buildCommentsTab() {
-    return Column(
-      children: [
-        // Course Rating Widget
-        if (courseData != null)
-          Container(
-            margin: EdgeInsets.all(16.w),
-            padding: EdgeInsets.all(20.w),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16.r),
-              border: Border.all(color: AppColors.border),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: CourseRatingWidget(
-              userRating: _userCourseRating?.toInt(),
-              averageRating: (courseData!['rating'] is num
-                  ? (courseData!['rating'] as num).toDouble()
-                  : 0.0),
-              totalRatings: courseData!['_count']?['ratings'] ?? 0,
-              onRate: _handleCourseRate,
+    if (_isLoadingComments) {
+      return Center(child: CircularProgressIndicator(color: AppColors.primary));
+    }
+
+    return CustomScrollView(
+      slivers: [
+        // Comment input section (only if enrolled)
+        if (_isEnrolled)
+          SliverToBoxAdapter(
+            child: Container(
+              padding: EdgeInsets.all(16.w),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border(bottom: BorderSide(color: AppColors.border)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Izoh qoldiring',
+                    style: GoogleFonts.inter(
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  SizedBox(height: 12.h),
+                  TextField(
+                    controller: _commentController,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      hintText: 'Fikringizni yozing...',
+                      hintStyle: TextStyle(
+                        fontSize: 14.sp,
+                        color: AppColors.textSecondary,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12.r),
+                        borderSide: BorderSide(color: AppColors.border),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12.r),
+                        borderSide: BorderSide(color: AppColors.border),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12.r),
+                        borderSide: BorderSide(
+                          color: AppColors.primary,
+                          width: 2,
+                        ),
+                      ),
+                      contentPadding: EdgeInsets.all(12.w),
+                    ),
+                  ),
+                  SizedBox(height: 12.h),
+                  // Image preview
+                  if (_selectedImages.isNotEmpty)
+                    Container(
+                      height: 80.h,
+                      margin: EdgeInsets.only(bottom: 12.h),
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _selectedImages.length,
+                        itemBuilder: (context, index) {
+                          return Container(
+                            margin: EdgeInsets.only(right: 8.w),
+                            child: Stack(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8.r),
+                                  child: Image.file(
+                                    File(_selectedImages[index].path),
+                                    width: 80.w,
+                                    height: 80.h,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                                Positioned(
+                                  top: 4.h,
+                                  right: 4.w,
+                                  child: GestureDetector(
+                                    onTap: () => _removeImage(index),
+                                    child: Container(
+                                      padding: EdgeInsets.all(4.w),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        Icons.close,
+                                        size: 16.sp,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  Row(
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: _pickImages,
+                        icon: Icon(Icons.add_photo_alternate, size: 18.sp),
+                        label: Text(
+                          'Rasm (${_selectedImages.length}/5)',
+                          style: TextStyle(fontSize: 13.sp),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          side: BorderSide(color: AppColors.primary),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 12.w,
+                            vertical: 8.h,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8.r),
+                          ),
+                        ),
+                      ),
+                      Spacer(),
+                      ElevatedButton(
+                        onPressed: _submitComment,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 24.w,
+                            vertical: 12.h,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12.r),
+                          ),
+                        ),
+                        child: Text(
+                          'Yuborish',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
-        Flexible(
-          child: _isLoadingComments
-              ? Center(
-                  child: CircularProgressIndicator(color: AppColors.primary),
-                )
-              : _comments.isEmpty
-              ? SingleChildScrollView(
+
+        // Comments list
+        _comments.isEmpty
+            ? SliverFillRemaining(
+                child: Center(
                   child: Padding(
                     padding: EdgeInsets.all(32.w),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        SizedBox(height: 40.h),
-                        SvgPicture.asset(
-                          'assets/icons/chat_round.svg',
-                          width: 64.w,
-                          height: 64.h,
-                          colorFilter: ColorFilter.mode(
-                            AppColors.textSecondary.withOpacity(0.5),
-                            BlendMode.srcIn,
-                          ),
+                        Icon(
+                          Icons.comment_outlined,
+                          size: 64.sp,
+                          color: AppColors.textSecondary.withOpacity(0.5),
                         ),
                         SizedBox(height: 16.h),
                         Text(
@@ -853,14 +1197,26 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                             color: AppColors.textSecondary,
                           ),
                         ),
+                        if (_isEnrolled) ...[
+                          SizedBox(height: 8.h),
+                          Text(
+                            'Birinchi bo\'lib izoh qoldiring!',
+                            style: TextStyle(
+                              fontSize: 14.sp,
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
-                )
-              : ListView.builder(
-                  padding: EdgeInsets.all(16.w),
-                  itemCount: _comments.length,
-                  itemBuilder: (context, index) {
+                ),
+              )
+            : SliverPadding(
+                padding: EdgeInsets.all(16.w),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate((context, index) {
                     final comment = _comments[index];
                     final user = comment['user'];
                     return Container(
@@ -893,12 +1249,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                                         user['avatar'].toString().isNotEmpty
                                     ? ClipOval(
                                         child: CachedNetworkImage(
-                                          imageUrl:
-                                              user['avatar']
-                                                  .toString()
-                                                  .startsWith('http')
-                                              ? user['avatar']
-                                              : '${AppConstants.baseUrl}${user['avatar']}',
+                                          imageUrl: user['avatar'],
                                           width: 40.r,
                                           height: 40.r,
                                           fit: BoxFit.cover,
@@ -930,7 +1281,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      '${user?['firstName'] ?? ''} ${user?['surname'] ?? ''}',
+                                      '${user?['firstName']?.toString() ?? ''} ${user?['surname']?.toString() ?? ''}',
                                       style: GoogleFonts.inter(
                                         fontSize: 15.sp,
                                         fontWeight: FontWeight.w600,
@@ -948,7 +1299,15 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                                             height: 14.h,
                                             colorFilter: ColorFilter.mode(
                                               starIndex <
-                                                      (comment['rating'] ?? 0)
+                                                      (comment['rating'] is int
+                                                          ? comment['rating']
+                                                          : (comment['rating']
+                                                                    is String
+                                                                ? int.tryParse(
+                                                                        comment['rating'],
+                                                                      ) ??
+                                                                      0
+                                                                : 0))
                                                   ? Colors.amber
                                                   : Colors.grey.shade300,
                                               BlendMode.srcIn,
@@ -971,386 +1330,112 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                           ),
                           SizedBox(height: 12.h),
                           Text(
-                            comment['comment'] ?? '',
+                            comment['comment']?.toString() ?? '',
                             style: GoogleFonts.inter(
                               fontSize: 14.sp,
                               color: AppColors.textPrimary,
                               height: 1.5,
                             ),
                           ),
-                          // Screenshots display
-                          if (comment['screenshots'] != null)
-                            Builder(
-                              builder: (context) {
-                                final screenshots = comment['screenshots'];
-                                List<dynamic> screenshotList = [];
-
-                                print(
-                                  'DEBUG RAW: screenshots type = ${screenshots.runtimeType}',
-                                );
-                                print(
-                                  'DEBUG RAW: screenshots value = $screenshots',
-                                );
-
-                                if (screenshots is List) {
-                                  print(
-                                    'DEBUG: screenshots is List, length: ${screenshots.length}',
-                                  );
-                                  if (screenshots.isNotEmpty) {
-                                    print(
-                                      'DEBUG: First element = ${screenshots[0]}',
-                                    );
-                                    print(
-                                      'DEBUG: First element type = ${screenshots[0].runtimeType}',
-                                    );
-                                  }
-
-                                  // Check if nested array [[...]]
-                                  if (screenshots.isNotEmpty &&
-                                      screenshots[0] is List) {
-                                    print(
-                                      'DEBUG: Found nested array, extracting inner list',
-                                    );
-                                    screenshotList = List<dynamic>.from(
-                                      screenshots[0],
-                                    );
-                                  } else if (screenshots.isNotEmpty &&
-                                      screenshots[0] is String) {
-                                    // Maybe JSON string?
-                                    print('DEBUG: First element is String');
-                                    screenshotList = screenshots;
-                                  } else {
-                                    screenshotList = screenshots;
-                                  }
-                                } else if (screenshots is String &&
-                                    screenshots.isNotEmpty) {
-                                  print('DEBUG: screenshots is String');
-                                  // Parse JSON string to List
-                                  try {
-                                    final parsed = json.decode(screenshots);
-                                    print('DEBUG: Parsed JSON = $parsed');
-                                    if (parsed is List) {
-                                      screenshotList = parsed;
-                                    } else {
-                                      screenshotList = [screenshots];
-                                    }
-                                  } catch (e) {
-                                    print('DEBUG: Failed to parse JSON: $e');
-                                    screenshotList = [screenshots];
-                                  }
-                                }
-
-                                print(
-                                  'Screenshots for comment ${comment['id']}: $screenshotList',
-                                );
-                                print(
-                                  'Screenshot count: ${screenshotList.length}',
-                                );
-
-                                if (screenshotList.isEmpty) {
-                                  return const SizedBox.shrink();
-                                }
-
-                                return Container(
-                                  margin: EdgeInsets.only(top: 8.h),
-                                  height: 60.h,
-                                  child: ListView.builder(
-                                    scrollDirection: Axis.horizontal,
-                                    itemCount: screenshotList.length,
-                                    itemBuilder: (context, imgIndex) {
-                                      final screenshot =
-                                          screenshotList[imgIndex];
-                                      final imageUrl =
-                                          screenshot.toString().startsWith(
-                                            'http',
-                                          )
-                                          ? screenshot
-                                          : '${AppConstants.baseUrl}$screenshot';
-
-                                      print(
-                                        'Screenshot $imgIndex URL: $imageUrl',
-                                      );
-
-                                      return GestureDetector(
-                                        onTap: () {
-                                          _showFullScreenImage(
-                                            context,
-                                            imageUrl,
-                                            screenshotList
-                                                .map(
-                                                  (s) => s.startsWith('http')
-                                                      ? s
-                                                      : '${AppConstants.baseUrl}$s',
-                                                )
-                                                .toList(),
-                                            imgIndex,
-                                          );
-                                        },
-                                        child: Container(
-                                          margin: EdgeInsets.only(right: 8.w),
-                                          child: ClipRRect(
-                                            borderRadius: BorderRadius.circular(
-                                              8.r,
-                                            ),
-                                            child: CachedNetworkImage(
-                                              imageUrl: imageUrl,
-                                              width: 60.w,
-                                              height: 60.h,
-                                              fit: BoxFit.cover,
-                                              errorListener: (error) {
-                                                print(
-                                                  'Image load error for $imageUrl: $error',
-                                                );
-                                              },
-                                              placeholder: (context, url) =>
-                                                  Container(
-                                                    color: Colors.grey.shade200,
-                                                    child: Center(
-                                                      child:
-                                                          CircularProgressIndicator(
-                                                            strokeWidth: 2,
-                                                            color: AppColors
-                                                                .primary,
-                                                          ),
-                                                    ),
-                                                  ),
-                                              errorWidget:
-                                                  (
-                                                    context,
-                                                    url,
-                                                    error,
-                                                  ) => Container(
-                                                    color: Colors.grey.shade200,
-                                                    child: Icon(
-                                                      Icons.broken_image,
-                                                      color: Colors.grey,
-                                                      size: 20.w,
-                                                    ),
-                                                  ),
-                                            ),
-                                          ),
+                          // Display images if available
+                          if (comment['images'] != null &&
+                              comment['images'].toString().isNotEmpty)
+                            Padding(
+                              padding: EdgeInsets.only(top: 12.h),
+                              child: SizedBox(
+                                height: 80.h,
+                                child: ListView.builder(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: _parseImages(
+                                    comment['images'],
+                                  ).length,
+                                  itemBuilder: (context, imgIndex) {
+                                    final imageUrl = _parseImages(
+                                      comment['images'],
+                                    )[imgIndex];
+                                    return Container(
+                                      margin: EdgeInsets.only(right: 8.w),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(
+                                          8.r,
                                         ),
-                                      );
-                                    },
-                                  ),
-                                );
-                              },
+                                        child: CachedNetworkImage(
+                                          imageUrl: imageUrl,
+                                          width: 80.w,
+                                          height: 80.h,
+                                          fit: BoxFit.cover,
+                                          placeholder: (context, url) =>
+                                              Container(
+                                                color: Colors.grey.shade200,
+                                                child: Center(
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                        color:
+                                                            AppColors.primary,
+                                                      ),
+                                                ),
+                                              ),
+                                          errorWidget: (context, url, error) =>
+                                              Container(
+                                                color: Colors.grey.shade200,
+                                                child: Icon(
+                                                  Icons.broken_image,
+                                                  color: Colors.grey,
+                                                  size: 24.sp,
+                                                ),
+                                              ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
                             ),
                         ],
                       ),
                     );
-                  },
+                  }, childCount: _comments.length),
                 ),
-        ),
-        // Comment input
-        Container(
-          padding: EdgeInsets.all(16.w),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, -5),
               ),
-            ],
-          ),
-          child: SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Image preview
-                if (_selectedImagePaths.isNotEmpty)
-                  Container(
-                    margin: EdgeInsets.only(bottom: 8.h, left: 8.w),
-                    child: Wrap(
-                      spacing: 8.w,
-                      runSpacing: 8.h,
-                      children: _selectedImagePaths.asMap().entries.map((
-                        entry,
-                      ) {
-                        final index = entry.key;
-                        final imagePath = entry.value;
-                        return Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(6.r),
-                              child: Image.file(
-                                File(imagePath),
-                                height: 50.h,
-                                width: 50.w,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                            Positioned(
-                              top: -6.h,
-                              right: -6.w,
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _selectedImagePaths.removeAt(index);
-                                  });
-                                },
-                                child: Container(
-                                  width: 20.w,
-                                  height: 20.h,
-                                  decoration: BoxDecoration(
-                                    color: Colors.red,
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.2),
-                                        blurRadius: 4,
-                                      ),
-                                    ],
-                                  ),
-                                  child: Icon(
-                                    Icons.close,
-                                    color: Colors.white,
-                                    size: 12.w,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                IntrinsicHeight(
-                  child: Row(
-                    children: [
-                      // Image picker button
-                      IconButton(
-                        icon: Icon(
-                          Icons.image,
-                          color: AppColors.primary,
-                          size: 24.w,
-                        ),
-                        onPressed: () async {
-                          if (_selectedImagePaths.length >= 3) {
-                            ToastUtils.showInfo(
-                              context,
-                              'Maksimal 3 ta rasm tanlash mumkin',
-                            );
-                            return;
-                          }
-                          final XFile? image = await _picker.pickImage(
-                            source: ImageSource.gallery,
-                            maxWidth: 1024,
-                            maxHeight: 1024,
-                            imageQuality: 85,
-                          );
-                          if (image != null) {
-                            setState(() {
-                              _selectedImagePaths.add(image.path);
-                            });
-                          }
-                        },
-                      ),
-                      SizedBox(width: 8.w),
-                      Expanded(
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxHeight: _selectedImagePaths.isEmpty
-                                ? 60.h
-                                : 100.h,
-                          ),
-                          child: TextField(
-                            controller: _commentController,
-                            maxLines: null,
-                            minLines: 1,
-                            cursorHeight: 18.h,
-                            cursorColor: AppColors.primary,
-                            decoration: InputDecoration(
-                              hintText: 'Izoh yozing...',
-                              hintStyle: GoogleFonts.inter(
-                                fontSize: 14.sp,
-                                color: AppColors.textSecondary,
-                              ),
-                              filled: true,
-                              fillColor: AppColors.background,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(25.r),
-                                borderSide: BorderSide.none,
-                              ),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 20.w,
-                                vertical: 12.h,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: 8.w),
-                      SizedBox(
-                        width: 40.w,
-                        height: 40.h,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                AppColors.primary,
-                                AppColors.primary.withOpacity(0.8),
-                              ],
-                            ),
-                            shape: BoxShape.circle,
-                          ),
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            icon: SvgPicture.asset(
-                              'assets/icons/send.svg',
-                              width: 20.w,
-                              height: 20.h,
-                              colorFilter: const ColorFilter.mode(
-                                Colors.white,
-                                BlendMode.srcIn,
-                              ),
-                            ),
-                            onPressed: () async {
-                              if (_commentController.text.isNotEmpty) {
-                                try {
-                                  final commentDataSource =
-                                      getIt<CommentRemoteDataSource>();
-
-                                  await commentDataSource.createComment(
-                                    courseId: widget.courseId,
-                                    comment: _commentController.text,
-                                    rating: 5,
-                                    imagePaths: _selectedImagePaths.isNotEmpty
-                                        ? _selectedImagePaths
-                                        : null,
-                                  );
-
-                                  _commentController.clear();
-                                  setState(() => _selectedImagePaths.clear());
-                                  if (mounted) {
-                                    ToastUtils.showSuccess(
-                                      context,
-                                      'Izoh muvaffaqiyatli yuborildi!',
-                                    );
-                                    await _loadComments(); // Reload comments
-                                  }
-                                } catch (e) {
-                                  if (mounted) {
-                                    ToastUtils.showError(context, e);
-                                  }
-                                }
-                              }
-                            },
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ],
     );
+  }
+
+  List<String> _parseImages(dynamic images) {
+    if (images == null) return [];
+
+    List<String> imagePaths = [];
+
+    if (images is String) {
+      try {
+        // Try parsing as JSON array
+        final decoded = images
+            .replaceAll('[', '')
+            .replaceAll(']', '')
+            .replaceAll('"', '')
+            .split(',');
+        imagePaths = decoded
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+      } catch (e) {
+        return [];
+      }
+    } else if (images is List) {
+      imagePaths = images.map((e) => e.toString()).toList();
+    }
+
+    // Convert relative paths to full URLs
+    return imagePaths.map((path) {
+      if (path.startsWith('http')) {
+        return path; // Already a full URL
+      } else if (path.startsWith('/uploads/')) {
+        return '${AppConstants.baseUrl}$path';
+      } else {
+        return '${AppConstants.baseUrl}/uploads/images/$path';
+      }
+    }).toList();
   }
 
   Widget _buildFaqTab() {
@@ -1466,106 +1551,6 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     } catch (e) {
       return '';
     }
-  }
-
-  void _showFullScreenImage(
-    BuildContext context,
-    String initialImage,
-    List screenshots,
-    int initialIndex,
-  ) {
-    final pageController = PageController(initialPage: initialIndex);
-    final currentPage = ValueNotifier<int>(initialIndex);
-
-    showDialog(
-      context: context,
-      barrierColor: Colors.black87,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: EdgeInsets.zero,
-        child: Stack(
-          children: [
-            PageView.builder(
-              itemCount: screenshots.length,
-              controller: pageController,
-              onPageChanged: (index) {
-                currentPage.value = index;
-              },
-              itemBuilder: (context, index) {
-                return InteractiveViewer(
-                  minScale: 0.5,
-                  maxScale: 4.0,
-                  panEnabled: true,
-                  scaleEnabled: true,
-                  child: Center(
-                    child: CachedNetworkImage(
-                      imageUrl: screenshots[index],
-                      fit: BoxFit.contain,
-                      placeholder: (context, url) => Center(
-                        child: CircularProgressIndicator(color: Colors.white),
-                      ),
-                      errorWidget: (context, url, error) => Center(
-                        child: Icon(
-                          Icons.broken_image,
-                          color: Colors.white,
-                          size: 64.w,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-            // Page indicator
-            Positioned(
-              bottom: 40.h,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: ValueListenableBuilder<int>(
-                  valueListenable: currentPage,
-                  builder: (context, page, child) {
-                    return Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 16.w,
-                        vertical: 8.h,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.6),
-                        borderRadius: BorderRadius.circular(20.r),
-                      ),
-                      child: Text(
-                        '${page + 1}/${screenshots.length}',
-                        style: GoogleFonts.inter(
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-            Positioned(
-              top: 40.h,
-              right: 16.w,
-              child: IconButton(
-                icon: Container(
-                  padding: EdgeInsets.all(8.w),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.close, color: Colors.white, size: 24.w),
-                ),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 

@@ -95,6 +95,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
         return Icons.verified;
       case 'video':
         return Icons.play_circle;
+      case 'payment':
+        return Icons.account_balance_wallet;
+      case 'teacher':
+        return Icons.person;
+      case 'test':
+        return Icons.quiz;
+      case 'special':
+        return Icons.star;
+      case 'system':
+        return Icons.settings;
       default:
         return Icons.notifications;
     }
@@ -147,9 +157,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
       ),
       body: _isLoading
           ? ListView.separated(
-              padding: EdgeInsets.all(16.w),
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
               itemCount: 5,
-              separatorBuilder: (context, index) => SizedBox(height: 12.h),
+              separatorBuilder: (context, index) => SizedBox(height: 16.h),
               itemBuilder: (context, index) => const NotificationCardShimmer(),
             )
           : _notifications.isEmpty
@@ -183,9 +193,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
               ),
             )
           : ListView.separated(
-              padding: EdgeInsets.all(16.w),
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
               itemCount: _notifications.length,
-              separatorBuilder: (context, index) => SizedBox(height: 12.h),
+              separatorBuilder: (context, index) => SizedBox(height: 16.h),
               itemBuilder: (context, index) {
                 final notification = _notifications[index];
                 final isRead = notification['isRead'] == true;
@@ -204,12 +214,20 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       color: isRead
                           ? Colors.white
                           : AppColors.primary.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(12.r),
+                      borderRadius: BorderRadius.circular(16.r),
                       border: Border.all(
                         color: isRead
                             ? AppColors.border
-                            : AppColors.primary.withOpacity(0.2),
+                            : AppColors.primary.withOpacity(0.3),
+                        width: 1.5,
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.03),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -218,23 +236,23 @@ class _NotificationsPageState extends State<NotificationsPage> {
                         if (hasImage)
                           ClipRRect(
                             borderRadius: BorderRadius.vertical(
-                              top: Radius.circular(12.r),
+                              top: Radius.circular(16.r),
                             ),
                             child: CachedNetworkImage(
                               imageUrl: notification['image'],
-                              height: 140.h,
+                              height: 180.h,
                               width: double.infinity,
                               fit: BoxFit.cover,
                               placeholder: (context, url) => Container(
-                                height: 140.h,
+                                height: 180.h,
                                 color: AppColors.shimmerBase,
                               ),
                               errorWidget: (context, url, error) => Container(
-                                height: 140.h,
+                                height: 180.h,
                                 color: AppColors.secondary,
                                 child: Icon(
                                   Icons.image,
-                                  size: 48.sp,
+                                  size: 60.sp,
                                   color: AppColors.textHint,
                                 ),
                               ),
@@ -243,25 +261,39 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
                         // Content
                         Padding(
-                          padding: EdgeInsets.all(16.w),
+                          padding: EdgeInsets.all(20.w),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               // Icon
                               Container(
-                                width: 48.w,
-                                height: 48.w,
+                                width: 56.w,
+                                height: 56.w,
                                 decoration: BoxDecoration(
-                                  color: AppColors.primary.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12.r),
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      AppColors.primary,
+                                      AppColors.primary.withOpacity(0.7),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(14.r),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppColors.primary.withOpacity(0.3),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
                                 ),
                                 child: Icon(
                                   _getIconFromType(notification['type']),
-                                  color: AppColors.primary,
-                                  size: 24.sp,
+                                  color: Colors.white,
+                                  size: 28.sp,
                                 ),
                               ),
-                              SizedBox(width: 12.w),
+                              SizedBox(width: 16.w),
 
                               // Text Content
                               Expanded(
@@ -274,41 +306,63 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                           child: Text(
                                             notification['title'] ?? '',
                                             style: TextStyle(
-                                              fontSize: 16.sp,
+                                              fontSize: 17.sp,
                                               fontWeight: isRead
-                                                  ? FontWeight.w500
+                                                  ? FontWeight.w600
                                                   : FontWeight.bold,
                                               color: AppColors.textPrimary,
+                                              height: 1.3,
                                             ),
                                           ),
                                         ),
                                         if (!isRead)
                                           Container(
-                                            width: 8.w,
-                                            height: 8.w,
-                                            margin: EdgeInsets.only(left: 8.w),
-                                            decoration: const BoxDecoration(
+                                            width: 10.w,
+                                            height: 10.w,
+                                            margin: EdgeInsets.only(left: 10.w),
+                                            decoration: BoxDecoration(
                                               color: AppColors.primary,
                                               shape: BoxShape.circle,
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: AppColors.primary.withOpacity(0.4),
+                                                  blurRadius: 4,
+                                                  spreadRadius: 1,
+                                                ),
+                                              ],
                                             ),
                                           ),
                                       ],
                                     ),
-                                    SizedBox(height: 4.h),
+                                    SizedBox(height: 8.h),
                                     Text(
                                       notification['message'] ?? '',
                                       style: TextStyle(
-                                        fontSize: 14.sp,
+                                        fontSize: 15.sp,
                                         color: AppColors.textSecondary,
+                                        height: 1.5,
                                       ),
+                                      maxLines: 3,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    SizedBox(height: 8.h),
-                                    Text(
-                                      _formatDate(notification['createdAt']),
-                                      style: TextStyle(
-                                        fontSize: 12.sp,
-                                        color: AppColors.textHint,
-                                      ),
+                                    SizedBox(height: 12.h),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.access_time,
+                                          size: 14.sp,
+                                          color: AppColors.textHint,
+                                        ),
+                                        SizedBox(width: 4.w),
+                                        Text(
+                                          _formatDate(notification['createdAt']),
+                                          style: TextStyle(
+                                            fontSize: 13.sp,
+                                            color: AppColors.textHint,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
