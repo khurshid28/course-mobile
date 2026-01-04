@@ -35,13 +35,13 @@ class _TestSessionScreenState extends State<TestSessionScreen>
     WidgetsBinding.instance.addObserver(this);
     _pageController = PageController();
     _answers = Map.from(widget.session.currentAnswers);
-    
+
     // Timer animation controller
     _timerAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
     )..repeat(reverse: true);
-    
+
     _startTimer();
     _setSecureScreen();
   }
@@ -145,7 +145,7 @@ class _TestSessionScreenState extends State<TestSessionScreen>
   Future<void> _submitAnswer(int questionId, int selectedAnswer) async {
     // Haptic feedback
     HapticFeedback.lightImpact();
-    
+
     setState(() {
       _answers[questionId] = selectedAnswer;
     });
@@ -171,7 +171,9 @@ class _TestSessionScreenState extends State<TestSessionScreen>
           ),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       );
     }
@@ -225,7 +227,7 @@ class _TestSessionScreenState extends State<TestSessionScreen>
 
   void _showResultDialog(Map<String, dynamic> result) {
     final isPassed = result['isPassed'] as bool;
-    
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -238,7 +240,9 @@ class _TestSessionScreenState extends State<TestSessionScreen>
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isPassed ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
+                color: isPassed
+                    ? Colors.green.withValues(alpha: 0.1)
+                    : Colors.red.withValues(alpha: 0.1),
               ),
               child: Icon(
                 isPassed ? Icons.check_circle : Icons.cancel,
@@ -280,7 +284,10 @@ class _TestSessionScreenState extends State<TestSessionScreen>
                   children: [
                     Text(
                       '${result['score']}%',
-                      style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     Text(
                       '${result['correctAnswers']}/${result['totalQuestions']}',
@@ -304,7 +311,11 @@ class _TestSessionScreenState extends State<TestSessionScreen>
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.workspace_premium, size: 32, color: Colors.white),
+                    const Icon(
+                      Icons.workspace_premium,
+                      size: 32,
+                      color: Colors.white,
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
@@ -335,30 +346,6 @@ class _TestSessionScreenState extends State<TestSessionScreen>
               ),
               child: const Text('OK', style: TextStyle(fontSize: 16)),
             ),
-          ),
-        ],
-                size: 48,
-                color: Colors.amber,
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Sertifikat olish huquqiga ega bo\'ldingiz!',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green,
-                ),
-              ),
-            ],
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            child: const Text('OK'),
           ),
         ],
       ),
