@@ -19,8 +19,9 @@ class TestSessionScreen extends StatefulWidget {
 }
 
 class _TestSessionScreenState extends State<TestSessionScreen>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, TickerProviderStateMixin {
   late PageController _pageController;
+  late AnimationController _timerAnimationController;
   Map<int, int> _answers = {};
   int _currentPage = 0;
   int _remainingSeconds = 0;
@@ -34,6 +35,13 @@ class _TestSessionScreenState extends State<TestSessionScreen>
     WidgetsBinding.instance.addObserver(this);
     _pageController = PageController();
     _answers = Map.from(widget.session.currentAnswers);
+    
+    // Timer animation controller
+    _timerAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    )..repeat(reverse: true);
+    
     _startTimer();
     _setSecureScreen();
   }
@@ -43,6 +51,7 @@ class _TestSessionScreenState extends State<TestSessionScreen>
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _pageController.dispose();
+    _timerAnimationController.dispose();
     _removeSecureScreen();
     super.dispose();
   }
@@ -134,6 +143,9 @@ class _TestSessionScreenState extends State<TestSessionScreen>
   }
 
   Future<void> _submitAnswer(int questionId, int selectedAnswer) async {
+    // Haptic feedback
+    HapticFeedback.lightImpact();
+    
     setState(() {
       _answers[questionId] = selectedAnswer;
     });
@@ -144,11 +156,24 @@ class _TestSessionScreenState extends State<TestSessionScreen>
         questionId: questionId,
         selectedAnswer: selectedAnswer,
       );
+      // Success feedback
+      HapticFeedback.mediumImpact();
     } catch (e) {
       print('Error submitting answer: $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Xatolik: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(child: Text('Xatolik: $e')),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
     }
   }
 
@@ -199,30 +224,119 @@ class _TestSessionScreenState extends State<TestSessionScreen>
   }
 
   void _showResultDialog(Map<String, dynamic> result) {
+    final isPassed = result['isPassed'] as bool;
+    
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: Text(
-          result['isPassed'] ? '🎉 Tabriklaymiz!' : '😔 Afsuski',
-          textAlign: TextAlign.center,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Column(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 500),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isPassed ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
+              ),
+              child: Icon(
+                isPassed ? Icons.check_circle : Icons.cancel,
+                size: 64,
+                color: isPassed ? Colors.green : Colors.red,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              isPassed ? '🎉 Tabriklaymiz!' : '😔 Afsuski',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: isPassed ? Colors.green : Colors.red,
+              ),
+            ),
+          ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              'Natija: ${result['score']}%',
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 120,
+                  height: 120,
+                  child: CircularProgressIndicator(
+                    value: result['score'] / 100,
+                    strokeWidth: 12,
+                    backgroundColor: Colors.grey[200],
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      isPassed ? Colors.green : Colors.orange,
+                    ),
+                  ),
+                ),
+                Column(
+                  children: [
+                    Text(
+                      '${result['score']}%',
+                      style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      '${result['correctAnswers']}/${result['totalQuestions']}',
+                      style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              'To\'g\'ri javoblar: ${result['correctAnswers']}/${result['totalQuestions']}',
-              style: const TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             if (result['receivedCertificate'] == true) ...[
-              const Icon(
-                Icons.workspace_premium,
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.amber[600]!, Colors.amber[800]!],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.workspace_premium, size: 32, color: Colors.white),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Sertifikat olish huquqiga ega bo\'ldingiz!',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('OK', style: TextStyle(fontSize: 16)),
+            ),
+          ),
+        ],
                 size: 48,
                 color: Colors.amber,
               ),

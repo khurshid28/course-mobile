@@ -3,6 +3,7 @@ import '../../data/models/test_model.dart';
 import '../../data/repositories/test_repository.dart';
 import '../screens/test_session_screen.dart';
 import '../../../core/widgets/screenshot_blocker.dart';
+import '../widgets/enhanced_test_card.dart';
 
 class TestListScreen extends StatefulWidget {
   final int courseId;
@@ -193,14 +194,16 @@ class _TestListScreenState extends State<TestListScreen> {
                 itemCount: _tests!.length,
                 itemBuilder: (context, index) {
                   final test = _tests![index];
-                  return _buildTestCard(test);
+                  return EnhancedTestCard(
+                    test: test,
+                    onStart: () => _startTest(test),
+                  );
                 },
               ),
             ),
     );
   }
-
-  Widget _buildTestCard(TestModel test) {
+}
     final bool isPassed = test.lastAttempt?.isPassed ?? false;
     final bool hasAttempted = test.lastAttempt != null;
 
