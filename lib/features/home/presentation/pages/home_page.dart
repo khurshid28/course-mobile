@@ -442,6 +442,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               teacher['avatar'].toString().trim().isNotEmpty;
 
                           return GestureDetector(
+                            behavior: HitTestBehavior.opaque,
                             onTap: () {
                               context.pushWithFade(
                                 TeacherDetailPage(teacherId: teacher['id']),
@@ -611,6 +612,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           final category = _categories[index];
 
                           return GestureDetector(
+                            behavior: HitTestBehavior.opaque,
                             onTap: () {
                               final mainPageState = context
                                   .findAncestorStateOfType<MainPageState>();
@@ -755,6 +757,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final isSaved = course['isSaved'] ?? false;
 
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () async {
         final result = await context.pushWithFade(
           CourseDetailPage(courseId: course['id']),
@@ -856,6 +859,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   top: 12.h,
                   right: 12.w,
                   child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
                     onTap: () => _toggleSaveCourse(course['id']),
                     child: Container(
                       padding: EdgeInsets.all(8.w),

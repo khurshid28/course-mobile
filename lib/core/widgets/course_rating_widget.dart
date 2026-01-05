@@ -8,6 +8,7 @@ class CourseRatingWidget extends StatefulWidget {
   final double averageRating; // Course's average rating
   final int totalRatings; // Total number of ratings
   final Function(int rating) onRate; // Callback when user rates
+  final VoidCallback? onDelete; // Callback when user deletes rating
 
   const CourseRatingWidget({
     super.key,
@@ -15,6 +16,7 @@ class CourseRatingWidget extends StatefulWidget {
     required this.averageRating,
     required this.totalRatings,
     required this.onRate,
+    this.onDelete,
   });
 
   @override
@@ -24,6 +26,17 @@ class CourseRatingWidget extends StatefulWidget {
 class _CourseRatingWidgetState extends State<CourseRatingWidget> {
   int? _hoveredStar;
   bool _isRating = false;
+
+  @override
+  void didUpdateWidget(CourseRatingWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reset editing mode if user rating changed
+    if (oldWidget.userRating != widget.userRating) {
+      setState(() {
+        _isRating = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -95,8 +108,8 @@ class _CourseRatingWidgetState extends State<CourseRatingWidget> {
                         index < widget.averageRating.floor()
                             ? Icons.star_rounded
                             : (index < widget.averageRating
-                                ? Icons.star_half_rounded
-                                : Icons.star_outline_rounded),
+                                  ? Icons.star_half_rounded
+                                  : Icons.star_outline_rounded),
                         color: Colors.amber,
                         size: 20.sp,
                       );
@@ -147,28 +160,83 @@ class _CourseRatingWidgetState extends State<CourseRatingWidget> {
                     ),
                   ),
                   SizedBox(height: 16.h),
-                  TextButton.icon(
-                    onPressed: _isRating ? null : () {
-                      setState(() {
-                        _isRating = true;
-                      });
-                    },
-                    icon: SvgPicture.asset(
-                      'assets/icons/edit.svg',
-                      width: 18.w,
-                      height: 18.h,
-                      colorFilter: ColorFilter.mode(
-                        AppColors.primary,
-                        BlendMode.srcIn,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      TextButton.icon(
+                        onPressed: _isRating
+                            ? null
+                            : () {
+                                setState(() {
+                                  _isRating = true;
+                                });
+                              },
+                        icon: SvgPicture.asset(
+                          'assets/icons/edit.svg',
+                          width: 18.w,
+                          height: 18.h,
+                          colorFilter: ColorFilter.mode(
+                            AppColors.primary,
+                            BlendMode.srcIn,
+                          ),
+                        ),
+                        label: Text(
+                          'O\'zgartirish',
+                          style: TextStyle(fontSize: 14.sp),
+                        ),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                        ),
                       ),
-                    ),
-                    label: Text(
-                      'Bahoni o\'zgartirish',
-                      style: TextStyle(fontSize: 14.sp),
-                    ),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                    ),
+                      if (widget.onDelete != null) ...[
+                        SizedBox(width: 8.w),
+                        TextButton.icon(
+                          onPressed: () async {
+                            // Show confirmation dialog
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: Text(
+                                  'Bahoni o\'chirish',
+                                  style: TextStyle(fontSize: 18.sp),
+                                ),
+                                content: Text(
+                                  'Bahoni o\'chirishni xohlaysizmi?',
+                                  style: TextStyle(fontSize: 14.sp),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, false),
+                                    child: const Text('Bekor qilish'),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, true),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.red,
+                                    ),
+                                    child: const Text('O\'chirish'),
+                                  ),
+                                ],
+                              ),
+                            );
+
+                            if (confirm == true) {
+                              widget.onDelete!();
+                            }
+                          },
+                          icon: Icon(Icons.delete_outline, size: 18.sp),
+                          label: Text(
+                            'O\'chirish',
+                            style: TextStyle(fontSize: 14.sp),
+                          ),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
@@ -185,13 +253,16 @@ class _CourseRatingWidgetState extends State<CourseRatingWidget> {
                     children: List.generate(5, (index) {
                       final starValue = index + 1;
                       return GestureDetector(
-                        onTap: () async {
-                          await widget.onRate(starValue);
+                        onTap: () {
+                          // Update local state immediately
                           if (mounted) {
                             setState(() {
                               _isRating = false;
+                              _hoveredStar = null;
                             });
                           }
+                          // Call parent callback (no await to prevent state issues)
+                          widget.onRate(starValue);
                         },
                         child: MouseRegion(
                           onEnter: (_) {
@@ -207,10 +278,13 @@ class _CourseRatingWidgetState extends State<CourseRatingWidget> {
                           child: Padding(
                             padding: EdgeInsets.symmetric(horizontal: 4.w),
                             child: Icon(
-                              (_hoveredStar != null && starValue <= _hoveredStar!)
+                              (_hoveredStar != null &&
+                                      starValue <= _hoveredStar!)
                                   ? Icons.star_rounded
                                   : Icons.star_outline_rounded,
-                              color: (_hoveredStar != null && starValue <= _hoveredStar!)
+                              color:
+                                  (_hoveredStar != null &&
+                                      starValue <= _hoveredStar!)
                                   ? AppColors.primary
                                   : AppColors.border,
                               size: 40.sp,

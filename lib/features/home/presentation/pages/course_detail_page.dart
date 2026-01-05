@@ -16,6 +16,9 @@ import '../../data/datasources/comment_remote_datasource.dart';
 import '../../../../injection_container.dart';
 import 'checkout_page.dart';
 import 'video_player_page.dart';
+import '../../../test/presentation/screens/test_list_screen.dart';
+import '../../../test/data/repositories/test_repository.dart';
+import 'results_page.dart';
 
 class CourseDetailPage extends StatefulWidget {
   final int courseId;
@@ -111,16 +114,49 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     try {
       final dataSource = getIt<CourseRemoteDataSource>();
       await dataSource.rateCourse(widget.courseId, rating);
-      if (mounted) {
-        setState(() => _userCourseRating = rating.toDouble());
-        ToastUtils.showSuccess(context, 'Baho muvaffaqiyatli saqlandi!');
-        // Reload both course details and user rating
-        await Future.wait([_loadCourseDetails(), _loadUserCourseRating()]);
-      }
+      if (!mounted) return;
+
+      // Update local state immediately
+      setState(() {
+        _userCourseRating = rating.toDouble();
+      });
+
+      ToastUtils.showSuccess(context, 'Baho muvaffaqiyatli saqlandi!');
+
+      // Reload data in background without blocking UI
+      _loadCourseDetails();
+      _loadUserCourseRating();
     } catch (e) {
       print('Rating error: $e');
       if (mounted) {
         ToastUtils.showError(context, 'Baholashda xatolik: ${e.toString()}');
+      }
+    }
+  }
+
+  Future<void> _handleDeleteRating() async {
+    try {
+      final dataSource = getIt<CourseRemoteDataSource>();
+      await dataSource.deleteRating(widget.courseId);
+      if (!mounted) return;
+
+      // Update local state immediately
+      setState(() {
+        _userCourseRating = null;
+      });
+
+      ToastUtils.showSuccess(context, 'Baho o\'chirildi');
+
+      // Reload data in background without blocking UI
+      _loadCourseDetails();
+      _loadUserCourseRating();
+    } catch (e) {
+      print('Delete rating error: $e');
+      if (mounted) {
+        ToastUtils.showError(
+          context,
+          'Bahoni o\'chirishda xatolik: ${e.toString()}',
+        );
       }
     }
   }
@@ -358,6 +394,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       body: CustomScrollView(
         slivers: [
           // App Bar with Course Image
@@ -625,8 +662,19 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                             : 0.0),
                         totalRatings: courseData!['_count']?['ratings'] ?? 0,
                         onRate: _handleCourseRate,
+                        onDelete: _userCourseRating != null
+                            ? _handleDeleteRating
+                            : null,
                       ),
                     ),
+
+                  // Test section (only if enrolled)
+                  if (_isEnrolled) ...[
+                    SizedBox(height: 16.h),
+                    _buildTestSection(),
+                  ],
+
+                  SizedBox(height: 16.h),
 
                   // Course Parameters Card
                   Container(
@@ -856,12 +904,14 @@ class _CourseDetailPageState extends State<CourseDetailPage>
       );
     }
 
-    return ListView.builder(
+    return ListView(
       padding: EdgeInsets.all(16.w),
-      itemCount: sections.length,
-      itemBuilder: (context, index) {
-        return _buildSectionCard(sections[index], index);
-      },
+      children: [
+        // Course sections
+        ...sections.asMap().entries.map((entry) {
+          return _buildSectionCard(entry.value, entry.key);
+        }).toList(),
+      ],
     );
   }
 
@@ -1008,6 +1058,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                       initialIndex: globalIndex,
                       title: video['title'] ?? 'Video ${index + 1}',
                       courseTitle: courseData?['title'] ?? '',
+                      isLocked: !canAccess,
                     ),
                   ),
                 );
@@ -1029,6 +1080,39 @@ class _CourseDetailPageState extends State<CourseDetailPage>
 
     return CustomScrollView(
       slivers: [
+        // Not enrolled message
+        if (!_isEnrolled)
+          SliverToBoxAdapter(
+            child: Container(
+              margin: EdgeInsets.all(16.w),
+              padding: EdgeInsets.all(16.w),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12.r),
+                border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.lock_outline,
+                    color: AppColors.primary,
+                    size: 24.sp,
+                  ),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: Text(
+                      'Kursni sotib oling va izoh qoldiring',
+                      style: GoogleFonts.inter(
+                        fontSize: 14.sp,
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         // Comment input section (only if enrolled)
         if (_isEnrolled)
           SliverToBoxAdapter(
@@ -1052,6 +1136,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                   SizedBox(height: 12.h),
                   TextField(
                     controller: _commentController,
+                    minLines: 3,
                     maxLines: 4,
                     decoration: InputDecoration(
                       hintText: 'Fikringizni yozing...',
@@ -1343,7 +1428,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                             Padding(
                               padding: EdgeInsets.only(top: 12.h),
                               child: SizedBox(
-                                height: 80.h,
+                                height: 100.h,
                                 child: ListView.builder(
                                   scrollDirection: Axis.horizontal,
                                   itemCount: _parseImages(
@@ -1355,36 +1440,112 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                                     )[imgIndex];
                                     return Container(
                                       margin: EdgeInsets.only(right: 8.w),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(
-                                          8.r,
-                                        ),
-                                        child: CachedNetworkImage(
-                                          imageUrl: imageUrl,
-                                          width: 80.w,
-                                          height: 80.h,
-                                          fit: BoxFit.cover,
-                                          placeholder: (context, url) =>
-                                              Container(
-                                                color: Colors.grey.shade200,
-                                                child: Center(
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                        strokeWidth: 2,
-                                                        color:
-                                                            AppColors.primary,
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          // Show full image
+                                          showDialog(
+                                            context: context,
+                                            builder: (context) => Dialog(
+                                              backgroundColor:
+                                                  Colors.transparent,
+                                              child: Stack(
+                                                children: [
+                                                  Center(
+                                                    child: CachedNetworkImage(
+                                                      imageUrl: imageUrl,
+                                                      fit: BoxFit.contain,
+                                                      placeholder:
+                                                          (
+                                                            context,
+                                                            url,
+                                                          ) => Center(
+                                                            child:
+                                                                CircularProgressIndicator(
+                                                                  color: AppColors
+                                                                      .primary,
+                                                                ),
+                                                          ),
+                                                      errorWidget:
+                                                          (
+                                                            context,
+                                                            url,
+                                                            error,
+                                                          ) => Icon(
+                                                            Icons.error,
+                                                            color: Colors.white,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                  Positioned(
+                                                    top: 10,
+                                                    right: 10,
+                                                    child: IconButton(
+                                                      onPressed: () =>
+                                                          Navigator.pop(
+                                                            context,
+                                                          ),
+                                                      icon: Icon(
+                                                        Icons.close,
+                                                        color: Colors.white,
+                                                        size: 30.sp,
                                                       ),
-                                                ),
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
-                                          errorWidget: (context, url, error) =>
-                                              Container(
-                                                color: Colors.grey.shade200,
-                                                child: Icon(
-                                                  Icons.broken_image,
-                                                  color: Colors.grey,
-                                                  size: 24.sp,
+                                            ),
+                                          );
+                                        },
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            8.r,
+                                          ),
+                                          child: CachedNetworkImage(
+                                            imageUrl: imageUrl,
+                                            width: 100.w,
+                                            height: 100.h,
+                                            fit: BoxFit.cover,
+                                            placeholder: (context, url) =>
+                                                Container(
+                                                  color: Colors.grey.shade200,
+                                                  child: Center(
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                          strokeWidth: 2,
+                                                          color:
+                                                              AppColors.primary,
+                                                        ),
+                                                  ),
                                                 ),
-                                              ),
+                                            errorWidget:
+                                                (
+                                                  context,
+                                                  url,
+                                                  error,
+                                                ) => Container(
+                                                  color: Colors.grey.shade200,
+                                                  child: Column(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .center,
+                                                    children: [
+                                                      Icon(
+                                                        Icons.broken_image,
+                                                        color: Colors.grey,
+                                                        size: 24.sp,
+                                                      ),
+                                                      SizedBox(height: 4.h),
+                                                      Text(
+                                                        'Yuklanmadi',
+                                                        style: TextStyle(
+                                                          fontSize: 10.sp,
+                                                          color: Colors.grey,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                          ),
                                         ),
                                       ),
                                     );
@@ -1408,18 +1569,31 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     List<String> imagePaths = [];
 
     if (images is String) {
+      if (images.isEmpty) return [];
+
       try {
-        // Try parsing as JSON array
-        final decoded = images
-            .replaceAll('[', '')
-            .replaceAll(']', '')
-            .replaceAll('"', '')
-            .split(',');
-        imagePaths = decoded
-            .map((e) => e.trim())
-            .where((e) => e.isNotEmpty)
-            .toList();
+        // Try parsing as JSON array first
+        if (images.contains('[') && images.contains(']')) {
+          final decoded = images
+              .replaceAll('[', '')
+              .replaceAll(']', '')
+              .replaceAll('"', '')
+              .replaceAll("'", '')
+              .split(',');
+          imagePaths = decoded
+              .map((e) => e.trim())
+              .where((e) => e.isNotEmpty)
+              .toList();
+        } else {
+          // Single image or comma-separated
+          imagePaths = images
+              .split(',')
+              .map((e) => e.trim())
+              .where((e) => e.isNotEmpty)
+              .toList();
+        }
       } catch (e) {
+        print('Error parsing images: $e');
         return [];
       }
     } else if (images is List) {
@@ -1428,14 +1602,164 @@ class _CourseDetailPageState extends State<CourseDetailPage>
 
     // Convert relative paths to full URLs
     return imagePaths.map((path) {
-      if (path.startsWith('http')) {
+      if (path.startsWith('http://') || path.startsWith('https://')) {
         return path; // Already a full URL
-      } else if (path.startsWith('/uploads/')) {
+      } else if (path.startsWith('/')) {
         return '${AppConstants.baseUrl}$path';
       } else {
         return '${AppConstants.baseUrl}/uploads/images/$path';
       }
     }).toList();
+  }
+
+  Widget _buildTestSection() {
+    return Container(
+      margin: EdgeInsets.symmetric(vertical: 8.h),
+      padding: EdgeInsets.all(20.w),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primary.withOpacity(0.1),
+            AppColors.primary.withOpacity(0.05),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(
+          color: AppColors.primary.withOpacity(0.3),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(12.w),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(12.r),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.quiz_outlined,
+                  color: Colors.white,
+                  size: 28.sp,
+                ),
+              ),
+              SizedBox(width: 16.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Test sinovlari',
+                      style: GoogleFonts.inter(
+                        fontSize: 18.sp,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    SizedBox(height: 4.h),
+                    Text(
+                      'Bilimingizni sinab ko\'ring',
+                      style: GoogleFonts.inter(
+                        fontSize: 13.sp,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 20.h),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => TestListScreen(
+                          courseId: widget.courseId,
+                          repository: getIt<TestRepository>(),
+                        ),
+                      ),
+                    );
+                  },
+                  icon: Icon(Icons.play_arrow, size: 20.sp),
+                  label: Text(
+                    'Testni boshlash',
+                    style: GoogleFonts.inter(
+                      fontSize: 15.sp,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(vertical: 14.h),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
+                    elevation: 2,
+                  ),
+                ),
+              ),
+              SizedBox(width: 12.w),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ResultsPage(),
+                    ),
+                  );
+                },
+                icon: Icon(Icons.assessment_outlined, size: 20.sp),
+                label: Text(
+                  'Natijalarim',
+                  style: GoogleFonts.inter(
+                    fontSize: 15.sp,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: AppColors.primary,
+                  padding: EdgeInsets.symmetric(
+                    vertical: 14.h,
+                    horizontal: 16.w,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                    side: BorderSide(color: AppColors.primary, width: 1.5),
+                  ),
+                  elevation: 0,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildFaqTab() {

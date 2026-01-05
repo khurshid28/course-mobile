@@ -119,4 +119,14 @@ class CourseRemoteDataSource {
       rethrow;
     }
   }
+
+  Future<void> deleteRating(int courseId) async {
+    try {
+      await _dioClient.delete('/courses/$courseId/rate');
+      AppLogger.success('Deleted rating for course $courseId');
+    } catch (e) {
+      AppLogger.error('Failed to delete rating: $e');
+      rethrow;
+    }
+  }
 }

@@ -26,10 +26,16 @@ class PaymentRemoteDataSource {
     required int courseId,
     required double amount,
     required String method,
+    required String subscriptionDuration,
     String? promoCode,
   }) async {
     try {
-      final data = {'courseId': courseId, 'amount': amount, 'method': method};
+      final data = {
+        'courseId': courseId,
+        'amount': amount,
+        'method': method,
+        'subscriptionDuration': subscriptionDuration,
+      };
       if (promoCode != null && promoCode.isNotEmpty) {
         data['promoCode'] = promoCode;
       }

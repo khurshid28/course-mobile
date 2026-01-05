@@ -11,6 +11,7 @@ import 'features/home/data/datasources/notification_remote_datasource.dart';
 import 'features/home/data/datasources/teacher_remote_datasource.dart';
 import 'features/home/data/datasources/payment_remote_datasource.dart';
 import 'features/home/data/datasources/saved_courses_local_datasource.dart';
+import 'features/test/data/repositories/test_repository.dart';
 
 final getIt = GetIt.instance;
 
@@ -52,5 +53,10 @@ Future<void> setupServiceLocator() async {
   );
   getIt.registerLazySingleton<SavedCoursesLocalDataSource>(
     () => SavedCoursesLocalDataSource(getIt<SharedPreferences>()),
+  );
+
+  // Repositories
+  getIt.registerLazySingleton<TestRepository>(
+    () => TestRepository(dataSource: getIt<TestRemoteDataSource>()),
   );
 }

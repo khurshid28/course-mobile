@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../data/models/test_model.dart';
 import '../../data/repositories/test_repository.dart';
 import '../screens/test_session_screen.dart';
 import '../../../../core/widgets/screenshot_blocker.dart';
+import '../../../../core/theme/app_colors.dart';
 
 class TestListScreen extends StatefulWidget {
   final int courseId;
@@ -37,6 +39,16 @@ class _TestListScreenState extends State<TestListScreen> {
 
     try {
       final tests = await widget.repository.getCourseTests(widget.courseId);
+
+      // Debug: Print test data
+      print('📊 Loaded ${tests.length} tests:');
+      for (var test in tests) {
+        print('  - ${test.title}:');
+        print('    isAvailable: ${test.isAvailable}');
+        print('    availabilityType: ${test.availabilityType}');
+        print('    availableAfterDays: ${test.availableAfterDays}');
+      }
+
       setState(() {
         _tests = tests;
         _isLoading = false;
@@ -165,7 +177,35 @@ class _TestListScreenState extends State<TestListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Testlar')),
+      backgroundColor: AppColors.scaffoldBackground,
+      appBar: AppBar(
+        backgroundColor: AppColors.primary,
+        elevation: 0,
+        leading: Padding(
+          padding: EdgeInsets.all(8.w),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8.r),
+            ),
+            child: IconButton(
+              icon: Icon(Icons.arrow_back_ios_new, color: Colors.white),
+              iconSize: 18.sp,
+              padding: EdgeInsets.zero,
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+        ),
+        title: Text(
+          'Test sinovlari',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18.sp,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        centerTitle: true,
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -185,7 +225,7 @@ class _TestListScreenState extends State<TestListScreen> {
               ),
             )
           : _tests == null || _tests!.isEmpty
-          ? const Center(child: Text('Testlar topilmadi'))
+          ? _buildEmptyState()
           : RefreshIndicator(
               onRefresh: _loadTests,
               child: ListView.builder(
@@ -203,145 +243,400 @@ class _TestListScreenState extends State<TestListScreen> {
   Widget _buildTestCard(TestModel test) {
     final bool isPassed = test.lastAttempt?.isPassed ?? false;
     final bool hasAttempted = test.lastAttempt != null;
+    final bool isLocked = !test.isAvailable;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: () => _startTest(test),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Title and status
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      test.title,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  if (!test.isAvailable)
-                    const Icon(Icons.lock, color: Colors.grey)
-                  else if (isPassed)
-                    const Icon(Icons.check_circle, color: Colors.green)
-                  else if (hasAttempted)
-                    const Icon(Icons.refresh, color: Colors.orange),
-                ],
+    return Container(
+      margin: EdgeInsets.only(bottom: 16.h),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16.r),
+        gradient: isLocked
+            ? LinearGradient(
+                colors: [Colors.grey.shade100, Colors.grey.shade50],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+            : isPassed
+            ? LinearGradient(
+                colors: [Colors.green.shade50, Colors.white],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+            : LinearGradient(
+                colors: [Colors.blue.shade50, Colors.white],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              const SizedBox(height: 12),
-
-              // Test info
-              Row(
-                children: [
-                  const Icon(Icons.quiz, size: 16, color: Colors.grey),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${test.questions.length} ta savol',
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-                  const SizedBox(width: 16),
-                  const Icon(Icons.timer, size: 16, color: Colors.grey),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${test.maxDuration} daqiqa',
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-
-              // Passing score
-              Row(
-                children: [
-                  const Icon(Icons.star, size: 16, color: Colors.amber),
-                  const SizedBox(width: 4),
-                  Text(
-                    'O\'tish bali: ${test.passingScore}%',
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-                  const SizedBox(width: 16),
-                  const Icon(
-                    Icons.workspace_premium,
-                    size: 16,
-                    color: Colors.amber,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Sertifikat: ${test.minCorrectAnswers}+ to\'g\'ri',
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-                ],
-              ),
-
-              // Last attempt info
-              if (hasAttempted) ...[
-                const SizedBox(height: 12),
-                const Divider(),
-                const SizedBox(height: 8),
+        boxShadow: [
+          BoxShadow(
+            color: isPassed
+                ? Colors.green.withOpacity(0.2)
+                : Colors.blue.withOpacity(0.15),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+            spreadRadius: 0,
+          ),
+          BoxShadow(
+            color: Colors.white,
+            blurRadius: 8,
+            offset: Offset(-4, -4),
+            spreadRadius: 0,
+          ),
+        ],
+        border: Border.all(
+          color: isLocked
+              ? Colors.grey.shade300
+              : isPassed
+              ? Colors.green.shade200
+              : Colors.blue.shade200,
+          width: 1.5,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: isLocked ? null : () => _startTest(test),
+          borderRadius: BorderRadius.circular(16.r),
+          child: Padding(
+            padding: EdgeInsets.all(20.w),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title and status badge
                 Row(
                   children: [
-                    Icon(
-                      isPassed ? Icons.check_circle : Icons.cancel,
-                      size: 16,
-                      color: isPassed ? Colors.green : Colors.red,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Oxirgi natija: ${test.lastAttempt!.score}% (${test.lastAttempt!.correctAnswers}/${test.lastAttempt!.totalQuestions})',
-                      style: TextStyle(
-                        color: isPassed ? Colors.green : Colors.red,
-                        fontWeight: FontWeight.w600,
+                    Expanded(
+                      child: Text(
+                        test.title,
+                        style: TextStyle(
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.bold,
+                          color: isLocked
+                              ? Colors.grey.shade600
+                              : Colors.black87,
+                        ),
                       ),
                     ),
+                    SizedBox(width: 12.w),
+                    _buildStatusBadge(isLocked, isPassed, hasAttempted),
                   ],
                 ),
-              ],
+                SizedBox(height: 16.h),
 
-              // Availability status
-              if (!test.isAvailable) ...[
-                const SizedBox(height: 12),
+                // Test info with better design
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
+                  padding: EdgeInsets.all(12.w),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.white.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(12.r),
+                    border: Border.all(color: Colors.grey.shade200, width: 1),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                  child: Column(
                     children: [
-                      const Icon(
-                        Icons.schedule,
-                        size: 16,
-                        color: Colors.orange,
+                      Row(
+                        children: [
+                          _buildInfoItem(
+                            Icons.quiz_outlined,
+                            '${test.questions.length} savol',
+                            Colors.blue,
+                          ),
+                          SizedBox(width: 20.w),
+                          _buildInfoItem(
+                            Icons.timer_outlined,
+                            '${test.maxDuration} daq',
+                            Colors.orange,
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        _getAvailabilityText(test.availabilityType),
-                        style: const TextStyle(
-                          color: Colors.orange,
-                          fontSize: 12,
-                        ),
+                      SizedBox(height: 12.h),
+                      Row(
+                        children: [
+                          _buildInfoItem(
+                            Icons.star_outline,
+                            'O\'tish: ${test.passingScore}%',
+                            Colors.amber,
+                          ),
+                          SizedBox(width: 20.w),
+                          _buildInfoItem(
+                            Icons.workspace_premium_outlined,
+                            'Sertifikat: ${test.minCorrectAnswers}+',
+                            Colors.green,
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
+
+                // Last attempt info with beautiful design
+                if (hasAttempted) ...[
+                  SizedBox(height: 16.h),
+                  Container(
+                    padding: EdgeInsets.all(12.w),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: isPassed
+                            ? [Colors.green.shade50, Colors.green.shade100]
+                            : [Colors.red.shade50, Colors.red.shade100],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12.r),
+                      border: Border.all(
+                        color: isPassed
+                            ? Colors.green.shade300
+                            : Colors.red.shade300,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(8.w),
+                          decoration: BoxDecoration(
+                            color: isPassed ? Colors.green : Colors.red,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: (isPassed ? Colors.green : Colors.red)
+                                    .withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            isPassed ? Icons.check_circle : Icons.cancel,
+                            size: 20.sp,
+                            color: Colors.white,
+                          ),
+                        ),
+                        SizedBox(width: 12.w),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Oxirgi natija',
+                                style: TextStyle(
+                                  fontSize: 12.sp,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
+                              SizedBox(height: 4.h),
+                              Text(
+                                '${test.lastAttempt!.score}% (${test.lastAttempt!.correctAnswers}/${test.lastAttempt!.totalQuestions} to\'g\'ri)',
+                                style: TextStyle(
+                                  color: isPassed
+                                      ? Colors.green.shade900
+                                      : Colors.red.shade900,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14.sp,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                // Locked message
+                if (isLocked) ...[
+                  SizedBox(height: 16.h),
+                  Container(
+                    padding: EdgeInsets.all(12.w),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.orange.shade50, Colors.orange.shade100],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12.r),
+                      border: Border.all(
+                        color: Colors.orange.shade300,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          size: 20.sp,
+                          color: Colors.orange.shade700,
+                        ),
+                        SizedBox(width: 12.w),
+                        Expanded(
+                          child: Text(
+                            'Testni ochish uchun avval kursni sotib oling',
+                            style: TextStyle(
+                              color: Colors.orange.shade900,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 13.sp,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildInfoItem(IconData icon, String text, Color color) {
+    return Expanded(
+      child: Row(
+        children: [
+          Icon(icon, size: 18.sp, color: color),
+          SizedBox(width: 6.w),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: Colors.grey.shade700,
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(bool isLocked, bool isPassed, bool hasAttempted) {
+    if (isLocked) {
+      return Container(
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade300,
+          borderRadius: BorderRadius.circular(20.r),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.3),
+              blurRadius: 4,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.lock, color: Colors.grey.shade700, size: 16.sp),
+            SizedBox(width: 4.w),
+            Text(
+              'Qulflangan',
+              style: TextStyle(
+                color: Colors.grey.shade700,
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (isPassed) {
+      return Container(
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.green.shade400, Colors.green.shade600],
+          ),
+          borderRadius: BorderRadius.circular(20.r),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.green.withOpacity(0.4),
+              blurRadius: 8,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.check_circle, color: Colors.white, size: 16.sp),
+            SizedBox(width: 4.w),
+            Text(
+              'O\'tdi',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12.sp,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (hasAttempted) {
+      return Container(
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.orange.shade400, Colors.orange.shade600],
+          ),
+          borderRadius: BorderRadius.circular(20.r),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.orange.withOpacity(0.4),
+              blurRadius: 8,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.refresh, color: Colors.white, size: 16.sp),
+            SizedBox(width: 4.w),
+            Text(
+              'Qayta',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12.sp,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      return Container(
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.blue.shade400, Colors.blue.shade600],
+          ),
+          borderRadius: BorderRadius.circular(20.r),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.blue.withOpacity(0.4),
+              blurRadius: 8,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.play_arrow, color: Colors.white, size: 16.sp),
+            SizedBox(width: 4.w),
+            Text(
+              'Boshlash',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12.sp,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   String _getAvailabilityText(String? type) {
@@ -359,5 +654,100 @@ class _TestListScreenState extends State<TestListScreen> {
       default:
         return 'Hozircha mavjud emas';
     }
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Container(
+        margin: EdgeInsets.all(32.w),
+        padding: EdgeInsets.all(32.w),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.blue.shade50, Colors.purple.shade50],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24.r),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.blue.withOpacity(0.1),
+              blurRadius: 20,
+              offset: Offset(0, 10),
+              spreadRadius: 5,
+            ),
+          ],
+          border: Border.all(color: Colors.blue.shade200, width: 2),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Icon with gradient background
+            Container(
+              padding: EdgeInsets.all(24.w),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.blue.shade400, Colors.purple.shade400],
+                ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.blue.withOpacity(0.3),
+                    blurRadius: 20,
+                    offset: Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.assignment_outlined,
+                size: 64.sp,
+                color: Colors.white,
+              ),
+            ),
+            SizedBox(height: 24.h),
+            // Title
+            Text(
+              'Testlar hozircha mavjud emas',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 22.sp,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade800,
+              ),
+            ),
+            SizedBox(height: 12.h),
+            // Description
+            Text(
+              'Bu kurs uchun test sinovlari hali qo\'shilmagan.\nKeyinroq qayta tekshirib ko\'ring.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 15.sp,
+                color: Colors.grey.shade600,
+                height: 1.5,
+              ),
+            ),
+            SizedBox(height: 24.h),
+            // Refresh button
+            ElevatedButton.icon(
+              onPressed: _loadTests,
+              icon: Icon(Icons.refresh, size: 20.sp),
+              label: Text(
+                'Yangilash',
+                style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue.shade600,
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 16.h),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
+                elevation: 4,
+                shadowColor: Colors.blue.withOpacity(0.5),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

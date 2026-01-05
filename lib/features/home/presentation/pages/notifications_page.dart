@@ -204,6 +204,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     notification['image'].toString().isNotEmpty;
 
                 return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: () {
                     if (!isRead) {
                       _markAsRead(notification['id']);
@@ -325,7 +326,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                               shape: BoxShape.circle,
                                               boxShadow: [
                                                 BoxShadow(
-                                                  color: AppColors.primary.withOpacity(0.4),
+                                                  color: AppColors.primary
+                                                      .withOpacity(0.4),
                                                   blurRadius: 4,
                                                   spreadRadius: 1,
                                                 ),
@@ -355,7 +357,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                         ),
                                         SizedBox(width: 4.w),
                                         Text(
-                                          _formatDate(notification['createdAt']),
+                                          _formatDate(
+                                            notification['createdAt'],
+                                          ),
                                           style: TextStyle(
                                             fontSize: 13.sp,
                                             color: AppColors.textHint,

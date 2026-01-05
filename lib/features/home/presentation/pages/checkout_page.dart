@@ -22,11 +22,12 @@ class CheckoutPage extends StatefulWidget {
 class _CheckoutPageState extends State<CheckoutPage> {
   final TextEditingController _promoController = TextEditingController();
   String? _selectedMethod;
+  String _selectedDuration = 'ONE_YEAR'; // Default 1 yillik
   bool _isValidatingPromo = false;
   bool _isPurchasing = false;
   Map<String, dynamic>? _promoCodeData;
 
-  double get _originalPrice {
+  double get _basePrice {
     final price = widget.course['price'];
     if (price == null) return 0;
     if (price is num) return price.toDouble();
@@ -34,7 +35,59 @@ class _CheckoutPageState extends State<CheckoutPage> {
     return 0;
   }
 
-  double get _discountAmount {
+  // Subscription narxlarini hisoblash
+  Map<String, dynamic> _calculateSubscriptionPrice(String duration) {
+    switch (duration) {
+      case 'ONE_MONTH':
+        return {
+          'price': _basePrice,
+          'discount': 0.0,
+          'months': 1,
+          'label': '1 oylik',
+          'discountPercent': 0,
+        };
+      case 'SIX_MONTHS':
+        final sixMonthTotal = _basePrice * 6;
+        final discount = sixMonthTotal * 0.15; // 15% chegirma
+        return {
+          'price': sixMonthTotal - discount,
+          'discount': discount,
+          'months': 6,
+          'label': '6 oylik',
+          'discountPercent': 15,
+        };
+      case 'ONE_YEAR':
+        final yearTotal = _basePrice * 12;
+        final discount = yearTotal * 0.25; // 25% chegirma
+        return {
+          'price': yearTotal - discount,
+          'discount': discount,
+          'months': 12,
+          'label': '1 yillik',
+          'discountPercent': 25,
+        };
+      default:
+        return {
+          'price': _basePrice,
+          'discount': 0.0,
+          'months': 1,
+          'label': '1 oylik',
+          'discountPercent': 0,
+        };
+    }
+  }
+
+  double get _originalPrice {
+    final subscriptionInfo = _calculateSubscriptionPrice(_selectedDuration);
+    return subscriptionInfo['price'] as double;
+  }
+
+  double get _subscriptionDiscount {
+    final subscriptionInfo = _calculateSubscriptionPrice(_selectedDuration);
+    return subscriptionInfo['discount'] as double;
+  }
+
+  double get _promoDiscountAmount {
     final discount = _promoCodeData?['discountAmount'];
     if (discount == null) return 0;
     if (discount is num) return discount.toDouble();
@@ -115,6 +168,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         courseId: widget.course['id'],
         amount: _finalPrice,
         method: _selectedMethod!,
+        subscriptionDuration: _selectedDuration,
         promoCode: _promoCodeData != null ? _promoController.text.trim() : null,
       );
 
@@ -233,7 +287,136 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 ],
               ),
             ),
+            SizedBox(height: 24.h),
 
+            // Subscription Duration Section
+            Text(
+              'Obuna muddati',
+              style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 12.h),
+            ...[
+              {'id': 'ONE_MONTH', 'label': '1 oylik', 'recommended': false},
+              {'id': 'SIX_MONTHS', 'label': '6 oylik', 'recommended': false},
+              {'id': 'ONE_YEAR', 'label': '1 yillik', 'recommended': true},
+            ].map((duration) {
+              final isSelected = _selectedDuration == duration['id'];
+              final durationInfo = _calculateSubscriptionPrice(duration['id'] as String);
+              final hasDiscount = (durationInfo['discountPercent'] as int) > 0;
+              
+              return GestureDetector(
+                onTap: () => setState(() {
+                  _selectedDuration = duration['id'] as String;
+                  _promoCodeData = null; // Reset promo when changing duration
+                  _promoController.clear();
+                }),
+                child: Container(
+                  margin: EdgeInsets.only(bottom: 12.h),
+                  padding: EdgeInsets.all(16.w),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12.r),
+                    border: Border.all(
+                      color: isSelected ? AppColors.primary : AppColors.border,
+                      width: isSelected ? 2 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  duration['label'] as String,
+                                  style: TextStyle(
+                                    fontSize: 15.sp,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                                if (duration['recommended'] == true) ...[
+                                  SizedBox(width: 8.w),
+                                  Container(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 8.w,
+                                      vertical: 2.h,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(6.r),
+                                      border: Border.all(color: Colors.green),
+                                    ),
+                                    child: Text(
+                                      'Tavsiya',
+                                      style: TextStyle(
+                                        fontSize: 10.sp,
+                                        color: Colors.green,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            SizedBox(height: 4.h),
+                            Row(
+                              children: [
+                                if (hasDiscount) ...[
+                                  Text(
+                                    '${FormatUtils.formatPrice(_basePrice * (durationInfo['months'] as int))} so\'m',
+                                    style: TextStyle(
+                                      fontSize: 12.sp,
+                                      color: AppColors.textSecondary,
+                                      decoration: TextDecoration.lineThrough,
+                                    ),
+                                  ),
+                                  SizedBox(width: 8.w),
+                                ],
+                                Text(
+                                  '${FormatUtils.formatPrice(durationInfo['price'] as double)} so\'m',
+                                  style: TextStyle(
+                                    fontSize: 14.sp,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (hasDiscount) ...[
+                              SizedBox(height: 4.h),
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 6.w,
+                                  vertical: 2.h,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(4.r),
+                                ),
+                                child: Text(
+                                  '${durationInfo['discountPercent']}% chegirma',
+                                  style: TextStyle(
+                                    fontSize: 10.sp,
+                                    color: Colors.orange.shade700,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      if (isSelected)
+                        Icon(Icons.check_circle, color: AppColors.primary),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
             SizedBox(height: 24.h),
 
             // Promo Code Section
@@ -437,29 +620,47 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       Text('Kurs narxi', style: TextStyle(fontSize: 14.sp)),
                       Text(
                         '${FormatUtils.formatPrice(_originalPrice)} so\'m',
-                        style: TextStyle(
-                          fontSize: 14.sp,
-                          decoration: _promoCodeData != null
-                              ? TextDecoration.lineThrough
-                              : null,
-                        ),
+                        style: TextStyle(fontSize: 14.sp),
                       ),
                     ],
                   ),
+                  if (_subscriptionDiscount > 0) ...[
+                    SizedBox(height: 8.h),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Obuna chegirmasi',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            color: Colors.orange,
+                          ),
+                        ),
+                        Text(
+                          '- ${FormatUtils.formatPrice(_subscriptionDiscount)} so\'m',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            color: Colors.orange,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),],
+                      ),
+                    
+                  ],
                   if (_promoCodeData != null) ...[
                     SizedBox(height: 8.h),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Chegirma',
+                          'Promo kod chegirmasi',
                           style: TextStyle(
                             fontSize: 14.sp,
                             color: Colors.green,
                           ),
                         ),
                         Text(
-                          '- ${FormatUtils.formatPrice(_discountAmount)} so\'m',
+                          '- ${FormatUtils.formatPrice(_promoDiscountAmount)} so\'m',
                           style: TextStyle(
                             fontSize: 14.sp,
                             color: Colors.green,

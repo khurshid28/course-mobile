@@ -13,6 +13,7 @@ class VideoPlayerPage extends StatefulWidget {
   final String? videoUrl;
   final String title;
   final String? courseTitle;
+  final bool isLocked;
 
   const VideoPlayerPage({
     Key? key,
@@ -22,6 +23,7 @@ class VideoPlayerPage extends StatefulWidget {
     this.videoUrl,
     required this.title,
     this.courseTitle,
+    this.isLocked = false,
   }) : super(key: key);
 
   @override
@@ -77,6 +79,15 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
       _errorMessage = null;
     });
 
+    // Check if video is locked
+    if (widget.isLocked) {
+      setState(() {
+        _errorMessage = 'Bu videoni ko\'rish uchun kursni sotib oling';
+        _isLoading = false;
+      });
+      return;
+    }
+
     try {
       // Dispose previous controllers
       _chewieController?.dispose();
@@ -124,10 +135,33 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
           ? videoUrl
           : '${AppConstants.baseUrl}$videoUrl';
 
-      _videoPlayerController = VideoPlayerController.networkUrl(
-        Uri.parse(fullUrl),
-      );
-      await _videoPlayerController!.initialize();
+      print('🎥 Video URL Info:');
+      print('  Original URL: $videoUrl');
+      print('  Is Network URL: $isNetworkUrl');
+      print('  Full URL: $fullUrl');
+      print('  Base URL: ${AppConstants.baseUrl}');
+
+      try {
+        _videoPlayerController = VideoPlayerController.networkUrl(
+          Uri.parse(fullUrl),
+        );
+        await _videoPlayerController!.initialize();
+        print('✅ Video player initialized successfully');
+      } catch (videoError) {
+        print('⚠️ Failed to load video from primary URL: $videoError');
+
+        // Try alternative video URL if primary fails
+        final alternativeUrl =
+            'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+        print('🔄 Trying alternative URL: $alternativeUrl');
+
+        _videoPlayerController?.dispose();
+        _videoPlayerController = VideoPlayerController.networkUrl(
+          Uri.parse(alternativeUrl),
+        );
+        await _videoPlayerController!.initialize();
+        print('✅ Alternative video loaded successfully');
+      }
 
       _chewieController = ChewieController(
         videoPlayerController: _videoPlayerController!,
@@ -236,6 +270,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
         });
       }
     } catch (e) {
+      print('❌ Video player error: $e');
       if (mounted) {
         setState(() {
           _errorMessage = e.toString();

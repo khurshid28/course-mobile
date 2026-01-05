@@ -493,32 +493,70 @@ class _TestSessionScreenState extends State<TestSessionScreen>
 
     return GestureDetector(
       onTap: () => _submitAnswer(questionId, optionIndex),
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.blue.withValues(alpha: 0.1) : Colors.white,
+          gradient: isSelected
+              ? LinearGradient(
+                  colors: [Colors.blue.shade400, Colors.blue.shade600],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: isSelected ? null : Colors.white,
           border: Border.all(
-            color: isSelected ? Colors.blue : Colors.grey[300]!,
-            width: isSelected ? 2 : 1,
+            color: isSelected ? Colors.blue.shade700 : Colors.grey.shade300,
+            width: isSelected ? 2 : 1.5,
           ),
           borderRadius: BorderRadius.circular(12),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.blue.withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                    spreadRadius: 0,
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
         ),
         child: Row(
           children: [
             Container(
-              width: 24,
-              height: 24,
+              width: 28,
+              height: 28,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isSelected ? Colors.blue : Colors.transparent,
+                gradient: isSelected
+                    ? LinearGradient(
+                        colors: [Colors.white, Colors.blue.shade50],
+                      )
+                    : null,
+                color: isSelected ? null : Colors.transparent,
                 border: Border.all(
-                  color: isSelected ? Colors.blue : Colors.grey,
+                  color: isSelected ? Colors.white : Colors.grey.shade400,
                   width: 2,
                 ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: Colors.white.withOpacity(0.5),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : [],
               ),
               child: isSelected
-                  ? const Icon(Icons.check, size: 16, color: Colors.white)
+                  ? Icon(Icons.check, size: 18, color: Colors.blue.shade700)
                   : null,
             ),
             const SizedBox(width: 12),
@@ -527,8 +565,8 @@ class _TestSessionScreenState extends State<TestSessionScreen>
                 optionText,
                 style: TextStyle(
                   fontSize: 16,
-                  color: isSelected ? Colors.blue : Colors.black87,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  color: isSelected ? Colors.white : Colors.black87,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 ),
               ),
             ),
@@ -545,9 +583,10 @@ class _TestSessionScreenState extends State<TestSessionScreen>
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, -4),
+            spreadRadius: 0,
           ),
         ],
       ),
@@ -556,44 +595,113 @@ class _TestSessionScreenState extends State<TestSessionScreen>
           // Previous button
           if (_currentPage > 0)
             Expanded(
-              child: OutlinedButton(
-                onPressed: () {
-                  _pageController.previousPage(
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                  );
-                },
-                child: const Text('Oldingi'),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: OutlinedButton(
+                  onPressed: () {
+                    _pageController.previousPage(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    );
+                  },
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    side: BorderSide(color: Colors.blue.shade300, width: 2),
+                  ),
+                  child: const Text('Oldingi', style: TextStyle(fontSize: 15)),
+                ),
               ),
             ),
           if (_currentPage > 0) const SizedBox(width: 16),
           // Next / Finish button
           Expanded(
             flex: 2,
-            child: ElevatedButton(
-              onPressed: _isSubmitting
-                  ? null
-                  : () {
-                      if (_currentPage < totalQuestions - 1) {
-                        _pageController.nextPage(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-                      } else {
-                        _completeTest();
-                      }
-                    },
-              child: _isSubmitting
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(
-                      _currentPage < totalQuestions - 1
-                          ? 'Keyingi'
-                          : 'Tugatish',
-                    ),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                gradient: LinearGradient(
+                  colors: _currentPage < totalQuestions - 1
+                      ? [Colors.blue.shade400, Colors.blue.shade600]
+                      : [Colors.green.shade400, Colors.green.shade600],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color:
+                        (_currentPage < totalQuestions - 1
+                                ? Colors.blue
+                                : Colors.green)
+                            .withOpacity(0.4),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ElevatedButton(
+                onPressed: _isSubmitting
+                    ? null
+                    : () {
+                        if (_currentPage < totalQuestions - 1) {
+                          _pageController.nextPage(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        } else {
+                          _completeTest();
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            _currentPage < totalQuestions - 1
+                                ? 'Keyingi'
+                                : 'Tugatish',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            _currentPage < totalQuestions - 1
+                                ? Icons.arrow_forward
+                                : Icons.check_circle,
+                            size: 20,
+                          ),
+                        ],
+                      ),
+              ),
             ),
           ),
         ],
