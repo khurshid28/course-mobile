@@ -8,6 +8,7 @@ import 'dart:io';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/toast_utils.dart';
 import '../../../../core/widgets/course_rating_widget.dart';
+import '../../../../core/widgets/shimmer_widgets.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../data/models/section_model.dart';
 import '../../data/datasources/course_remote_datasource.dart';
@@ -39,7 +40,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   bool _isLoadingRating = false;
   Map<String, dynamic>? courseData;
   final TextEditingController _commentController = TextEditingController();
-  double? _userCourseRating;
+  int? _userCourseRating;
   List<dynamic> _comments = [];
   bool _isLoadingComments = false;
   List<XFile> _selectedImages = [];
@@ -49,9 +50,25 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(_handleTabChange);
     _loadCourseDetails();
     _loadUserCourseRating();
     _loadComments();
+  }
+
+  void _handleTabChange() {
+    // Unfocus when changing tabs to hide keyboard
+    if (!_tabController.indexIsChanging) {
+      FocusScope.of(context).unfocus();
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.removeListener(_handleTabChange);
+    _tabController.dispose();
+    _commentController.dispose();
+    super.dispose();
   }
 
   String _formatDuration(dynamic durationValue) {
@@ -82,13 +99,6 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     }
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    _commentController.dispose();
-    super.dispose();
-  }
-
   Future<void> _loadUserCourseRating() async {
     setState(() => _isLoadingRating = true);
     try {
@@ -96,9 +106,10 @@ class _CourseDetailPageState extends State<CourseDetailPage>
       final rating = await dataSource.getUserCourseRating(widget.courseId);
       if (mounted) {
         setState(() {
-          final ratingValue = rating['rating'];
+          final ratingValue =
+              rating['userRating']; // Backend returns 'userRating'
           _userCourseRating = ratingValue != null
-              ? (ratingValue is num ? ratingValue.toDouble() : null)
+              ? (ratingValue is num ? ratingValue.toInt() : null)
               : null;
           _isLoadingRating = false;
         });
@@ -113,19 +124,23 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   Future<void> _handleCourseRate(int rating) async {
     try {
       final dataSource = getIt<CourseRemoteDataSource>();
-      await dataSource.rateCourse(widget.courseId, rating);
+      final response = await dataSource.rateCourse(widget.courseId, rating);
       if (!mounted) return;
 
-      // Update local state immediately
+      // Update local state with response data
       setState(() {
-        _userCourseRating = rating.toDouble();
+        _userCourseRating = rating;
+        // Update average rating from response
+        if (courseData != null && response['averageRating'] != null) {
+          courseData!['rating'] = response['averageRating'];
+          if (response['totalRatings'] != null) {
+            courseData!['_count'] = courseData!['_count'] ?? {};
+            courseData!['_count']['ratings'] = response['totalRatings'];
+          }
+        }
       });
 
       ToastUtils.showSuccess(context, 'Baho muvaffaqiyatli saqlandi!');
-
-      // Reload data in background without blocking UI
-      _loadCourseDetails();
-      _loadUserCourseRating();
     } catch (e) {
       print('Rating error: $e');
       if (mounted) {
@@ -137,19 +152,23 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   Future<void> _handleDeleteRating() async {
     try {
       final dataSource = getIt<CourseRemoteDataSource>();
-      await dataSource.deleteRating(widget.courseId);
+      final response = await dataSource.deleteRating(widget.courseId);
       if (!mounted) return;
 
-      // Update local state immediately
+      // Update local state with response data
       setState(() {
         _userCourseRating = null;
+        // Update average rating from response
+        if (courseData != null && response['averageRating'] != null) {
+          courseData!['rating'] = response['averageRating'];
+          if (response['totalRatings'] != null) {
+            courseData!['_count'] = courseData!['_count'] ?? {};
+            courseData!['_count']['ratings'] = response['totalRatings'];
+          }
+        }
       });
 
       ToastUtils.showSuccess(context, 'Baho o\'chirildi');
-
-      // Reload data in background without blocking UI
-      _loadCourseDetails();
-      _loadUserCourseRating();
     } catch (e) {
       print('Delete rating error: $e');
       if (mounted) {
@@ -393,8 +412,15 @@ class _CourseDetailPageState extends State<CourseDetailPage>
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF5F7FA),
+        body: CourseDetailShimmer(),
+      );
+    }
+
     return Scaffold(
-      resizeToAvoidBottomInset: true,
+      resizeToAvoidBottomInset: false,
       body: CustomScrollView(
         slivers: [
           // App Bar with Course Image
@@ -656,7 +682,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                         ],
                       ),
                       child: CourseRatingWidget(
-                        userRating: _userCourseRating?.toInt(),
+                        userRating: _userCourseRating,
                         averageRating: (courseData!['rating'] is num
                             ? (courseData!['rating'] as num).toDouble()
                             : 0.0),
@@ -1075,7 +1101,14 @@ class _CourseDetailPageState extends State<CourseDetailPage>
 
   Widget _buildCommentsTab() {
     if (_isLoadingComments) {
-      return Center(child: CircularProgressIndicator(color: AppColors.primary));
+      return ListView.builder(
+        padding: EdgeInsets.all(16.w),
+        itemCount: 5,
+        itemBuilder: (context, index) => Padding(
+          padding: EdgeInsets.only(bottom: 16.h),
+          child: ListItemShimmer(),
+        ),
+      );
     }
 
     return CustomScrollView(
@@ -1134,32 +1167,48 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                     ),
                   ),
                   SizedBox(height: 12.h),
-                  TextField(
-                    controller: _commentController,
-                    minLines: 3,
-                    maxLines: 4,
-                    decoration: InputDecoration(
-                      hintText: 'Fikringizni yozing...',
-                      hintStyle: TextStyle(
-                        fontSize: 14.sp,
-                        color: AppColors.textSecondary,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                        borderSide: BorderSide(color: AppColors.border),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                        borderSide: BorderSide(color: AppColors.border),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                        borderSide: BorderSide(
-                          color: AppColors.primary,
-                          width: 2,
+                  Focus(
+                    onFocusChange: (hasFocus) {
+                      if (hasFocus) {
+                        // Scroll to show TextField when focused
+                        Future.delayed(Duration(milliseconds: 300), () {
+                          if (mounted) {
+                            Scrollable.ensureVisible(
+                              context,
+                              duration: Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            );
+                          }
+                        });
+                      }
+                    },
+                    child: TextField(
+                      controller: _commentController,
+                      minLines: 3,
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        hintText: 'Fikringizni yozing...',
+                        hintStyle: TextStyle(
+                          fontSize: 14.sp,
+                          color: AppColors.textSecondary,
                         ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                          borderSide: BorderSide(color: AppColors.border),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                          borderSide: BorderSide(color: AppColors.border),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                          borderSide: BorderSide(
+                            color: AppColors.primary,
+                            width: 2,
+                          ),
+                        ),
+                        contentPadding: EdgeInsets.all(12.w),
                       ),
-                      contentPadding: EdgeInsets.all(12.w),
                     ),
                   ),
                   SizedBox(height: 12.h),
@@ -1269,27 +1318,84 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
-                          Icons.comment_outlined,
-                          size: 64.sp,
-                          color: AppColors.textSecondary.withOpacity(0.5),
-                        ),
-                        SizedBox(height: 16.h),
-                        Text(
-                          'Hozircha izohlar yo\'q',
-                          style: TextStyle(
-                            fontSize: 16.sp,
-                            color: AppColors.textSecondary,
+                        Container(
+                          padding: EdgeInsets.all(40.w),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                AppColors.primary.withOpacity(0.15),
+                                AppColors.primary.withOpacity(0.08),
+                              ],
+                            ),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.chat_bubble_outline,
+                            size: 64.sp,
+                            color: AppColors.primary,
                           ),
                         ),
+                        SizedBox(height: 24.h),
+                        Text(
+                          'Hozircha izohlar yo\'q',
+                          style: GoogleFonts.inter(
+                            fontSize: 20.sp,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        SizedBox(height: 12.h),
                         if (_isEnrolled) ...[
-                          SizedBox(height: 8.h),
                           Text(
                             'Birinchi bo\'lib izoh qoldiring!',
-                            style: TextStyle(
-                              fontSize: 14.sp,
+                            style: GoogleFonts.inter(
+                              fontSize: 15.sp,
                               color: AppColors.primary,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          SizedBox(height: 24.h),
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 24.w,
+                              vertical: 12.h,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12.r),
+                              border: Border.all(
+                                color: AppColors.primary.withOpacity(0.3),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.lightbulb_outline,
+                                  color: AppColors.primary,
+                                  size: 20.sp,
+                                ),
+                                SizedBox(width: 8.w),
+                                Text(
+                                  'Fikrlaringizni baham ko\'ring',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13.sp,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ] else ...[
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 32.w),
+                            child: Text(
+                              'Kursni sotib oling va izohlar qoldiring',
+                              style: GoogleFonts.inter(
+                                fontSize: 14.sp,
+                                color: AppColors.textSecondary,
+                              ),
+                              textAlign: TextAlign.center,
                             ),
                           ),
                         ],
@@ -1615,26 +1721,19 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   Widget _buildTestSection() {
     return Container(
       margin: EdgeInsets.symmetric(vertical: 8.h),
-      padding: EdgeInsets.all(20.w),
+      padding: EdgeInsets.all(24.w),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            AppColors.primary.withOpacity(0.1),
-            AppColors.primary.withOpacity(0.05),
-          ],
+          colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(
-          color: AppColors.primary.withOpacity(0.3),
-          width: 1.5,
-        ),
+        borderRadius: BorderRadius.circular(20.r),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Color(0xFF6366F1).withOpacity(0.4),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -1644,22 +1743,19 @@ class _CourseDetailPageState extends State<CourseDetailPage>
           Row(
             children: [
               Container(
-                padding: EdgeInsets.all(12.w),
+                padding: EdgeInsets.all(14.w),
                 decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(12.r),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(16.r),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.3),
+                    width: 2,
+                  ),
                 ),
                 child: Icon(
-                  Icons.quiz_outlined,
+                  Icons.emoji_events,
                   color: Colors.white,
-                  size: 28.sp,
+                  size: 32.sp,
                 ),
               ),
               SizedBox(width: 16.w),
@@ -1670,17 +1766,17 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                     Text(
                       'Test sinovlari',
                       style: GoogleFonts.inter(
-                        fontSize: 18.sp,
+                        fontSize: 20.sp,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
+                        color: Colors.white,
                       ),
                     ),
                     SizedBox(height: 4.h),
                     Text(
-                      'Bilimingizni sinab ko\'ring',
+                      'Bilimingizni sinab ko\'ring va sertifikat oling',
                       style: GoogleFonts.inter(
                         fontSize: 13.sp,
-                        color: AppColors.textSecondary,
+                        color: Colors.white.withOpacity(0.9),
                       ),
                     ),
                   ],
@@ -1688,7 +1784,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
               ),
             ],
           ),
-          SizedBox(height: 20.h),
+          SizedBox(height: 24.h),
           Row(
             children: [
               Expanded(
@@ -1704,55 +1800,50 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                       ),
                     );
                   },
-                  icon: Icon(Icons.play_arrow, size: 20.sp),
+                  icon: Icon(Icons.play_circle_filled, size: 22.sp),
                   label: Text(
                     'Testni boshlash',
                     style: GoogleFonts.inter(
                       fontSize: 15.sp,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(vertical: 14.h),
+                    backgroundColor: Colors.white,
+                    foregroundColor: Color(0xFF6366F1),
+                    padding: EdgeInsets.symmetric(vertical: 16.h),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12.r),
+                      borderRadius: BorderRadius.circular(14.r),
                     ),
-                    elevation: 2,
+                    elevation: 0,
                   ),
                 ),
               ),
               SizedBox(width: 12.w),
-              ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ResultsPage(),
-                    ),
-                  );
-                },
-                icon: Icon(Icons.assessment_outlined, size: 20.sp),
-                label: Text(
-                  'Natijalarim',
-                  style: GoogleFonts.inter(
-                    fontSize: 15.sp,
-                    fontWeight: FontWeight.w600,
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(14.r),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.3),
+                    width: 2,
                   ),
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: AppColors.primary,
-                  padding: EdgeInsets.symmetric(
-                    vertical: 14.h,
-                    horizontal: 16.w,
+                child: IconButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ResultsPage(),
+                      ),
+                    );
+                  },
+                  icon: Icon(
+                    Icons.bar_chart_rounded,
+                    color: Colors.white,
+                    size: 24.sp,
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12.r),
-                    side: BorderSide(color: AppColors.primary, width: 1.5),
-                  ),
-                  elevation: 0,
+                  tooltip: 'Natijalar',
                 ),
               ),
             ],

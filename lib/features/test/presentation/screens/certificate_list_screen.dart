@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import '../../../../core/widgets/shimmer_widgets.dart';
 
 class CertificateListScreen extends StatefulWidget {
   final String token;
@@ -69,16 +71,37 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
         context,
       ).showSnackBar(const SnackBar(content: Text('Yuklab olinmoqda...')));
 
+      print('=== PDF DOWNLOAD STARTED ===');
+      print('Certificate No: $certificateNo');
+      print('Base URL: ${widget.baseUrl}');
+      print(
+        'Full URL: ${widget.baseUrl}/tests/certificates/download/$certificateNo',
+      );
+
       final response = await http.get(
         Uri.parse(
-          '${widget.baseUrl}/api/tests/certificates/download/$certificateNo',
+          '${widget.baseUrl}/tests/certificates/download/$certificateNo',
         ),
+        headers: {'Authorization': 'Bearer ${widget.token}'},
       );
+
+      print('Response Status Code: ${response.statusCode}');
+      print('Response Headers: ${response.headers}');
+      print('Response Body Length: ${response.bodyBytes.length} bytes');
+      print('Content-Type: ${response.headers['content-type']}');
 
       if (response.statusCode == 200) {
         final dir = await getApplicationDocumentsDirectory();
         final file = File('${dir.path}/certificate_$certificateNo.pdf');
+        print('Saving to: ${file.path}');
+
         await file.writeAsBytes(response.bodyBytes);
+
+        final fileExists = await file.exists();
+        final fileSize = await file.length();
+        print('File saved successfully: $fileExists');
+        print('File size: $fileSize bytes');
+        print('=== PDF DOWNLOAD COMPLETED ===');
 
         if (!mounted) return;
 
@@ -95,9 +118,15 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
         // PDF ni ko'rsatish
         _viewPdf(file.path, certificateNo);
       } else {
-        throw Exception('Download failed');
+        print('=== DOWNLOAD FAILED ===');
+        print('Status Code: ${response.statusCode}');
+        print('Response Body: ${response.body}');
+        throw Exception('Download failed with status: ${response.statusCode}');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('=== PDF DOWNLOAD ERROR ===');
+      print('Error: $e');
+      print('StackTrace: $stackTrace');
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Xatolik: $e')));
@@ -117,6 +146,10 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
   }
 
   void _viewPdf(String filePath, String certificateNo) {
+    print('=== OPENING PDF VIEWER ===');
+    print('File Path: $filePath');
+    print('Certificate No: $certificateNo');
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -246,7 +279,14 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? ListView.builder(
+              padding: EdgeInsets.all(16.w),
+              itemCount: 3,
+              itemBuilder: (context, index) => Padding(
+                padding: EdgeInsets.only(bottom: 16.h),
+                child: const CertificateCardShimmer(),
+              ),
+            )
           : _error != null
           ? Center(
               child: Column(

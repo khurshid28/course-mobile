@@ -120,10 +120,11 @@ class CourseRemoteDataSource {
     }
   }
 
-  Future<void> deleteRating(int courseId) async {
+  Future<Map<String, dynamic>> deleteRating(int courseId) async {
     try {
-      await _dioClient.delete('/courses/$courseId/rate');
+      final response = await _dioClient.delete('/courses/$courseId/rate');
       AppLogger.success('Deleted rating for course $courseId');
+      return response.data;
     } catch (e) {
       AppLogger.error('Failed to delete rating: $e');
       rethrow;

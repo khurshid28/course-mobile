@@ -5,6 +5,7 @@ import 'package:chewie/chewie.dart';
 import 'package:video_player/video_player.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/widgets/video_error_widget.dart';
 
 class VideoPlayerPage extends StatefulWidget {
   final List<Map<String, dynamic>>? videos;
@@ -82,7 +83,8 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
     // Check if video is locked
     if (widget.isLocked) {
       setState(() {
-        _errorMessage = 'Bu videoni ko\'rish uchun kursni sotib oling';
+        _errorMessage =
+            '🔒 Premium Video\n\nBu videoni ko\'rish uchun kursni sotib oling';
         _isLoading = false;
       });
       return;
@@ -194,24 +196,10 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
         ),
         autoInitialize: true,
         errorBuilder: (context, errorMessage) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline, color: Colors.red, size: 48),
-                const SizedBox(height: 16),
-                Text(
-                  'Video yuklashda xatolik',
-                  style: TextStyle(color: Colors.white, fontSize: 16.sp),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  errorMessage,
-                  style: TextStyle(color: Colors.grey, fontSize: 12.sp),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
+          return VideoErrorWidget(
+            errorMessage: errorMessage,
+            onRetry: _initializePlayer,
+            isLocked: widget.isLocked,
           );
         },
         additionalOptions: (context) {
@@ -418,53 +406,10 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
                     ),
                   )
                 : _errorMessage != null
-                ? Container(
-                    color: Colors.black,
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.error_outline,
-                            color: Colors.red,
-                            size: 64,
-                          ),
-                          SizedBox(height: 16.h),
-                          Text(
-                            'Video yuklashda xatolik',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18.sp,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          SizedBox(height: 8.h),
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 32.w),
-                            child: Text(
-                              _errorMessage!,
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 14.sp,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          SizedBox(height: 24.h),
-                          ElevatedButton(
-                            onPressed: _initializePlayer,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 32.w,
-                                vertical: 12.h,
-                              ),
-                            ),
-                            child: const Text('Qayta urinish'),
-                          ),
-                        ],
-                      ),
-                    ),
+                ? VideoErrorWidget(
+                    errorMessage: _errorMessage!,
+                    onRetry: _initializePlayer,
+                    isLocked: widget.isLocked,
                   )
                 : _isInitialized && _chewieController != null
                 ? Chewie(controller: _chewieController!)
@@ -625,129 +570,201 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
                                         color: AppColors.textSecondary,
                                       ),
                                     ),
-                                    children: sectionVideos.asMap().entries.map(
-                                      (entry) {
-                                        final localIndex = entry.key;
-                                        final video = entry.value;
+                                    children: sectionVideos.asMap().entries.map((
+                                      entry,
+                                    ) {
+                                      final localIndex = entry.key;
+                                      final video = entry.value;
 
-                                        // Calculate global index
-                                        int globalIndex = 0;
-                                        for (int i = 0; i < sectionIndex; i++) {
-                                          final prevSection =
-                                              widget.sections![i];
-                                          final prevVideos =
-                                              (prevSection['videos']
-                                                      as List<dynamic>?)
-                                                  ?.length ??
-                                              0;
-                                          globalIndex += prevVideos;
-                                        }
-                                        globalIndex += localIndex;
+                                      // Calculate global index
+                                      int globalIndex = 0;
+                                      for (int i = 0; i < sectionIndex; i++) {
+                                        final prevSection = widget.sections![i];
+                                        final prevVideos =
+                                            (prevSection['videos']
+                                                    as List<dynamic>?)
+                                                ?.length ??
+                                            0;
+                                        globalIndex += prevVideos;
+                                      }
+                                      globalIndex += localIndex;
 
-                                        final isCurrentVideo =
-                                            globalIndex == _currentVideoIndex;
+                                      final isCurrentVideo =
+                                          globalIndex == _currentVideoIndex;
 
-                                        return Container(
-                                          decoration: BoxDecoration(
-                                            color: isCurrentVideo
-                                                ? AppColors.primary.withOpacity(
-                                                    0.08,
-                                                  )
-                                                : Colors.transparent,
-                                            border: Border(
-                                              top: BorderSide(
-                                                color: Colors.grey.shade200,
-                                              ),
+                                      return Container(
+                                        decoration: BoxDecoration(
+                                          color: isCurrentVideo
+                                              ? AppColors.primary.withOpacity(
+                                                  0.08,
+                                                )
+                                              : Colors.transparent,
+                                          border: Border(
+                                            top: BorderSide(
+                                              color: Colors.grey.shade200,
                                             ),
                                           ),
-                                          child: ListTile(
-                                            contentPadding:
-                                                EdgeInsets.symmetric(
-                                                  horizontal: 24.w,
-                                                  vertical: 4.h,
+                                        ),
+                                        child: ListTile(
+                                          contentPadding: EdgeInsets.symmetric(
+                                            horizontal: 24.w,
+                                            vertical: 4.h,
+                                          ),
+                                          leading: Stack(
+                                            children: [
+                                              Container(
+                                                width: 36.w,
+                                                height: 36.w,
+                                                decoration: BoxDecoration(
+                                                  color: isCurrentVideo
+                                                      ? AppColors.primary
+                                                      : Colors.grey.shade200,
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                        8.r,
+                                                      ),
                                                 ),
-                                            leading: Container(
-                                              width: 36.w,
-                                              height: 36.w,
-                                              decoration: BoxDecoration(
-                                                color: isCurrentVideo
-                                                    ? AppColors.primary
-                                                    : Colors.grey.shade200,
-                                                borderRadius:
-                                                    BorderRadius.circular(8.r),
-                                              ),
-                                              child: Center(
-                                                child: isCurrentVideo
-                                                    ? Icon(
-                                                        Icons.play_arrow,
-                                                        color: Colors.white,
-                                                        size: 20.sp,
-                                                      )
-                                                    : Text(
-                                                        '${localIndex + 1}',
-                                                        style: TextStyle(
-                                                          fontSize: 13.sp,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          color: AppColors
-                                                              .textSecondary,
-                                                        ),
-                                                      ),
-                                              ),
-                                            ),
-                                            title: Text(
-                                              video['title'] ??
-                                                  'Video ${localIndex + 1}',
-                                              style: TextStyle(
-                                                fontSize: 13.sp,
-                                                fontWeight: isCurrentVideo
-                                                    ? FontWeight.bold
-                                                    : FontWeight.w500,
-                                                color: isCurrentVideo
-                                                    ? AppColors.primary
-                                                    : AppColors.textPrimary,
-                                              ),
-                                            ),
-                                            subtitle: Text(
-                                              _formatDuration(
-                                                video['duration'],
-                                              ),
-                                              style: TextStyle(
-                                                fontSize: 11.sp,
-                                                color: AppColors.textSecondary,
-                                              ),
-                                            ),
-                                            trailing: isCurrentVideo
-                                                ? Container(
-                                                    padding:
-                                                        EdgeInsets.symmetric(
-                                                          horizontal: 8.w,
-                                                          vertical: 4.h,
-                                                        ),
-                                                    decoration: BoxDecoration(
-                                                      color: AppColors.primary,
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            4.r,
+                                                child: Center(
+                                                  child: isCurrentVideo
+                                                      ? Icon(
+                                                          Icons.play_arrow,
+                                                          color: Colors.white,
+                                                          size: 20.sp,
+                                                        )
+                                                      : Text(
+                                                          '${localIndex + 1}',
+                                                          style: TextStyle(
+                                                            fontSize: 13.sp,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            color: AppColors
+                                                                .textSecondary,
                                                           ),
+                                                        ),
+                                                ),
+                                              ),
+                                              if (video['isLocked'] == true)
+                                                Positioned(
+                                                  right: -2,
+                                                  top: -2,
+                                                  child: Container(
+                                                    padding: EdgeInsets.all(
+                                                      3.w,
                                                     ),
-                                                    child: Text(
-                                                      'Ko\'rilmoqda',
-                                                      style: TextStyle(
-                                                        fontSize: 9.sp,
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.orange,
+                                                      shape: BoxShape.circle,
+                                                      border: Border.all(
                                                         color: Colors.white,
-                                                        fontWeight:
-                                                            FontWeight.bold,
+                                                        width: 2,
                                                       ),
                                                     ),
-                                                  )
-                                                : null,
-                                            onTap: () =>
-                                                _selectVideo(globalIndex),
+                                                    child: Icon(
+                                                      Icons.lock,
+                                                      color: Colors.white,
+                                                      size: 10.sp,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
                                           ),
-                                        );
-                                      },
-                                    ).toList(),
+                                          title: Text(
+                                            video['title'] ??
+                                                'Video ${localIndex + 1}',
+                                            style: TextStyle(
+                                              fontSize: 13.sp,
+                                              fontWeight: isCurrentVideo
+                                                  ? FontWeight.bold
+                                                  : FontWeight.w500,
+                                              color: video['isLocked'] == true
+                                                  ? AppColors.textSecondary
+                                                  : isCurrentVideo
+                                                  ? AppColors.primary
+                                                  : AppColors.textPrimary,
+                                            ),
+                                          ),
+                                          subtitle: Row(
+                                            children: [
+                                              Text(
+                                                _formatDuration(
+                                                  video['duration'],
+                                                ),
+                                                style: TextStyle(
+                                                  fontSize: 11.sp,
+                                                  color:
+                                                      AppColors.textSecondary,
+                                                ),
+                                              ),
+                                              if (video['isLocked'] ==
+                                                  true) ...[
+                                                SizedBox(width: 8.w),
+                                                Container(
+                                                  padding: EdgeInsets.symmetric(
+                                                    horizontal: 6.w,
+                                                    vertical: 2.h,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.orange
+                                                        .withOpacity(0.15),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          4.r,
+                                                        ),
+                                                    border: Border.all(
+                                                      color: Colors.orange
+                                                          .withOpacity(0.3),
+                                                    ),
+                                                  ),
+                                                  child: Text(
+                                                    'Premium',
+                                                    style: TextStyle(
+                                                      fontSize: 9.sp,
+                                                      color: Colors
+                                                          .orange
+                                                          .shade700,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                          trailing: isCurrentVideo
+                                              ? Container(
+                                                  padding: EdgeInsets.symmetric(
+                                                    horizontal: 8.w,
+                                                    vertical: 4.h,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: AppColors.primary,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          4.r,
+                                                        ),
+                                                  ),
+                                                  child: Text(
+                                                    'Ko\'rilmoqda',
+                                                    style: TextStyle(
+                                                      fontSize: 9.sp,
+                                                      color: Colors.white,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                )
+                                              : video['isLocked'] == true
+                                              ? Icon(
+                                                  Icons.lock_outline,
+                                                  color: Colors.orange,
+                                                  size: 18.sp,
+                                                )
+                                              : null,
+                                          onTap: () =>
+                                              _selectVideo(globalIndex),
+                                        ),
+                                      );
+                                    }).toList(),
                                   ),
                                 );
                               },
@@ -763,36 +780,65 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
                                 final video = widget.videos![index];
                                 final isCurrentVideo =
                                     index == _currentVideoIndex;
+                                final isLocked = video['isLocked'] == true;
 
                                 return ListTile(
                                   selected: isCurrentVideo,
                                   selectedTileColor: AppColors.primary
                                       .withOpacity(0.08),
-                                  leading: Container(
-                                    width: 40.w,
-                                    height: 40.w,
-                                    decoration: BoxDecoration(
-                                      color: isCurrentVideo
-                                          ? AppColors.primary
-                                          : Colors.grey.shade200,
-                                      borderRadius: BorderRadius.circular(8.r),
-                                    ),
-                                    child: Center(
-                                      child: isCurrentVideo
-                                          ? Icon(
-                                              Icons.play_arrow,
-                                              color: Colors.white,
-                                              size: 24.sp,
-                                            )
-                                          : Text(
-                                              '${index + 1}',
-                                              style: TextStyle(
-                                                fontSize: 15.sp,
-                                                fontWeight: FontWeight.bold,
-                                                color: AppColors.textSecondary,
+                                  leading: Stack(
+                                    children: [
+                                      Container(
+                                        width: 40.w,
+                                        height: 40.w,
+                                        decoration: BoxDecoration(
+                                          color: isCurrentVideo
+                                              ? AppColors.primary
+                                              : Colors.grey.shade200,
+                                          borderRadius: BorderRadius.circular(
+                                            8.r,
+                                          ),
+                                        ),
+                                        child: Center(
+                                          child: isCurrentVideo
+                                              ? Icon(
+                                                  Icons.play_arrow,
+                                                  color: Colors.white,
+                                                  size: 24.sp,
+                                                )
+                                              : Text(
+                                                  '${index + 1}',
+                                                  style: TextStyle(
+                                                    fontSize: 15.sp,
+                                                    fontWeight: FontWeight.bold,
+                                                    color:
+                                                        AppColors.textSecondary,
+                                                  ),
+                                                ),
+                                        ),
+                                      ),
+                                      if (isLocked)
+                                        Positioned(
+                                          right: -2,
+                                          top: -2,
+                                          child: Container(
+                                            padding: EdgeInsets.all(4.w),
+                                            decoration: BoxDecoration(
+                                              color: Colors.orange,
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: Colors.white,
+                                                width: 2,
                                               ),
                                             ),
-                                    ),
+                                            child: Icon(
+                                              Icons.lock,
+                                              color: Colors.white,
+                                              size: 12.sp,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                   title: Text(
                                     video['title'] ?? 'Video ${index + 1}',
@@ -801,17 +847,53 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
                                       fontWeight: isCurrentVideo
                                           ? FontWeight.bold
                                           : FontWeight.w500,
-                                      color: isCurrentVideo
+                                      color: isLocked
+                                          ? AppColors.textSecondary
+                                          : isCurrentVideo
                                           ? AppColors.primary
                                           : AppColors.textPrimary,
                                     ),
                                   ),
-                                  subtitle: Text(
-                                    _formatDuration(video['duration']),
-                                    style: TextStyle(
-                                      fontSize: 12.sp,
-                                      color: AppColors.textSecondary,
-                                    ),
+                                  subtitle: Row(
+                                    children: [
+                                      Text(
+                                        _formatDuration(video['duration']),
+                                        style: TextStyle(
+                                          fontSize: 12.sp,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                      if (isLocked) ...[
+                                        SizedBox(width: 10.w),
+                                        Container(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 8.w,
+                                            vertical: 2.h,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.orange.withOpacity(
+                                              0.15,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              4.r,
+                                            ),
+                                            border: Border.all(
+                                              color: Colors.orange.withOpacity(
+                                                0.3,
+                                              ),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            'Premium',
+                                            style: TextStyle(
+                                              fontSize: 10.sp,
+                                              color: Colors.orange.shade700,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                   trailing: isCurrentVideo
                                       ? Container(
@@ -833,6 +915,12 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
                                               fontWeight: FontWeight.bold,
                                             ),
                                           ),
+                                        )
+                                      : isLocked
+                                      ? Icon(
+                                          Icons.lock_outline,
+                                          color: Colors.orange,
+                                          size: 20.sp,
                                         )
                                       : null,
                                   onTap: () => _selectVideo(index),

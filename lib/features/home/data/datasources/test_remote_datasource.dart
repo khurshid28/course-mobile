@@ -47,6 +47,15 @@ class TestRemoteDataSource {
     }
   }
 
+  Future<List<dynamic>> getUserTestResults() async {
+    try {
+      final response = await dioClient.get('/tests/results/my');
+      return response.data as List<dynamic>;
+    } catch (e) {
+      throw Exception('Test natijalarini yuklashda xatolik: $e');
+    }
+  }
+
   Future<Map<String, dynamic>> getCertificate(String certificateNo) async {
     try {
       final response = await dioClient.get(
@@ -60,9 +69,9 @@ class TestRemoteDataSource {
 
   Future<String> downloadCertificate(String certificateNo) async {
     try {
-      await dioClient.get('/tests/certificates/$certificateNo/download');
+      await dioClient.get('/tests/certificates/download/$certificateNo');
       // Return download URL or trigger download
-      return '/tests/certificates/$certificateNo/download';
+      return '/tests/certificates/download/$certificateNo';
     } catch (e) {
       throw Exception('Sertifikatni yuklashda xatolik: $e');
     }

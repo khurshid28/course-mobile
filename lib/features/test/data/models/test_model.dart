@@ -30,6 +30,12 @@ class TestModel {
   });
 
   factory TestModel.fromJson(Map<String, dynamic> json) {
+    // Agar backend isAvailable bermasa, birinchi testni (availableAfterDays = 0) ochiq deb hisoblaymiz
+    final bool isAvailable =
+        json['isAvailable'] ??
+        (json['availableAfterDays'] == 0 &&
+            json['availabilityType'] == 'ANYTIME');
+
     return TestModel(
       id: json['id'],
       title: json['title'],
@@ -49,7 +55,7 @@ class TestModel {
       lastAttempt: json['lastAttempt'] != null
           ? TestResultModel.fromJson(json['lastAttempt'])
           : null,
-      isAvailable: json['isAvailable'] ?? false,
+      isAvailable: isAvailable,
     );
   }
 }

@@ -59,6 +59,18 @@ class DioClient {
               print('📛 Error Data: ${error.response?.data}');
             }
           }
+
+          // Translate backend errors to Uzbek
+          if (error.response?.data != null && error.response?.data is Map) {
+            final errorData = error.response!.data as Map<String, dynamic>;
+            if (errorData['message'] != null) {
+              final translatedMessage = _translateErrorToUzbek(
+                errorData['message'].toString(),
+              );
+              errorData['message'] = translatedMessage;
+            }
+          }
+
           return handler.next(error);
         },
       ),
@@ -80,6 +92,83 @@ class DioClient {
   }
 
   Dio get dio => _dio;
+
+  // Translate backend errors to Uzbek
+  String _translateErrorToUzbek(String errorMessage) {
+    final translations = <String, String>{
+      // Auth errors
+      'User not found': 'Foydalanuvchi topilmadi',
+      'Invalid or expired code': 'Noto\'g\'ri yoki eskirgan kod',
+      'Unauthorized': 'Ruxsat berilmagan',
+
+      // Course errors
+      'Course not found': 'Kurs topilmadi',
+      'Already enrolled in this course': 'Siz allaqachon kursga yozilgansiz',
+      'You must be enrolled to leave feedback':
+          'Fikr qoldirish uchun kursga yozilishingiz kerak',
+
+      // Test errors
+      'Test topilmadi': 'Test topilmadi',
+      'Siz bu kursga yozilmagansiz': 'Siz bu kursga yozilmagansiz',
+      'Test allaqachon tugallangan': 'Test allaqachon tugallangan',
+      'Vaqt tugadi': 'Vaqt tugadi',
+      'Savol topilmadi': 'Savol topilmadi',
+      'Session topilmadi': 'Session topilmadi',
+      'Certificate not found': 'Sertifikat topilmadi',
+      'Certificate PDF not found': 'Sertifikat PDF topilmadi',
+
+      // Payment errors
+      'This course is free': 'Bu kurs bepul',
+      'Insufficient balance': 'Hisobingizda mablag\'lar yetarli emas',
+      'Payment not found': 'To\'lov topilmadi',
+      'Promo code topilmadi': 'Promo kod topilmadi',
+      'Promo code faol emas': 'Promo kod faol emas',
+      'Promo code muddati tugagan': 'Promo kod muddati tugagan',
+      'Siz bu promo code\'dan foydalangansiz':
+          'Siz bu promo koddan foydalangansiz',
+      'Siz maksimal promo code limitiga yetdingiz (3 ta)':
+          'Siz maksimal promo kod limitiga yetdingiz (3 ta)',
+      'Promo code foydalanish limiti tugagan':
+          'Promo kod foydalanish limiti tugagan',
+      'Kurs topilmadi': 'Kurs topilmadi',
+      'Promo code noto\'g\'ri sozlangan': 'Promo kod noto\'g\'ri sozlangan',
+      'Promo code faqat kurs sotib olishda ishlatiladi':
+          'Promo kod faqat kurs sotib olishda ishlatiladi',
+
+      // Teacher errors
+      'Teacher not found': 'O\'qituvchi topilmadi',
+      'Rating must be between 1 and 5': 'Baho 1 dan 5 gacha bo\'lishi kerak',
+      'Faqat o\'qituvchilar kurs yaratishi mumkin':
+          'Faqat o\'qituvchilar kurs yaratishi mumkin',
+
+      // Section errors
+      'Section with ID': 'Bo\'lim topilmadi',
+
+      // File errors
+      'Only image files are allowed!': 'Faqat rasm fayllarga ruxsat berilgan!',
+      'Only video files are allowed!': 'Faqat video fayllarga ruxsat berilgan!',
+      'File too large': 'Fayl juda katta',
+
+      // Comment errors
+      'Faqat rasm fayllarga ruxsat berilgan!':
+          'Faqat rasm fayllarga ruxsat berilgan!',
+    };
+
+    // Check for exact match
+    if (translations.containsKey(errorMessage)) {
+      return translations[errorMessage]!;
+    }
+
+    // Check for partial match
+    for (var entry in translations.entries) {
+      if (errorMessage.contains(entry.key)) {
+        return entry.value;
+      }
+    }
+
+    // If no translation found, return original message
+    return errorMessage;
+  }
 
   // Set token
   void setToken(String token) {

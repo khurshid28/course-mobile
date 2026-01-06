@@ -132,8 +132,10 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       final authDataSource = getIt<AuthRemoteDataSource>();
 
+      print('🔍 Uploading image from path: ${image.path}');
       // Upload image
       final imageUrl = await authDataSource.uploadImage(image.path);
+      print('✅ Image uploaded successfully: $imageUrl');
 
       // Clear old image cache first if exists
       if (_user?.avatar != null) {

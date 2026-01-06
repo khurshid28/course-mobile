@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/toast_utils.dart';
 import '../../../../core/utils/format_utils.dart';
 import '../../../../core/widgets/teacher_rating_widget.dart';
+import '../../../../core/widgets/shimmer_widgets.dart';
 import '../../data/datasources/teacher_remote_datasource.dart';
 import '../../../../injection_container.dart';
 import 'course_detail_page.dart';
@@ -73,7 +74,10 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
 
     try {
       final teacherDataSource = getIt<TeacherRemoteDataSource>();
-      final result = await teacherDataSource.rateTeacher(widget.teacherId, rating);
+      final result = await teacherDataSource.rateTeacher(
+        widget.teacherId,
+        rating,
+      );
 
       if (!mounted) return;
 
@@ -102,7 +106,19 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? ListView(
+              padding: EdgeInsets.all(16.w),
+              children: [
+                SizedBox(height: 40.h),
+                ProfileHeaderShimmer(),
+                SizedBox(height: 16.h),
+                ListItemShimmer(),
+                SizedBox(height: 16.h),
+                ListItemShimmer(),
+                SizedBox(height: 16.h),
+                CourseCardShimmer(),
+              ],
+            )
           : _teacher == null
           ? Center(
               child: Text(
@@ -318,10 +334,11 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
                   child: Padding(
                     padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 0),
                     child: _isLoadingRating
-                        ? const Center(child: CircularProgressIndicator())
+                        ? ListItemShimmer()
                         : TeacherRatingWidget(
                             userRating: _userRating,
-                            averageRating: (_teacher!['rating'] ?? 0.0).toDouble(),
+                            averageRating: (_teacher!['rating'] ?? 0.0)
+                                .toDouble(),
                             totalRatings: _teacher!['totalRatings'] ?? 0,
                             onRate: _handleRate,
                           ),

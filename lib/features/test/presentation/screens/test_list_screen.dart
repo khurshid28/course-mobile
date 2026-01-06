@@ -4,6 +4,7 @@ import '../../data/models/test_model.dart';
 import '../../data/repositories/test_repository.dart';
 import '../screens/test_session_screen.dart';
 import '../../../../core/widgets/screenshot_blocker.dart';
+import '../../../../core/widgets/shimmer_widgets.dart';
 import '../../../../core/theme/app_colors.dart';
 
 class TestListScreen extends StatefulWidget {
@@ -207,7 +208,14 @@ class _TestListScreenState extends State<TestListScreen> {
         centerTitle: true,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? ListView.builder(
+              padding: EdgeInsets.all(16.w),
+              itemCount: 3,
+              itemBuilder: (context, index) => Padding(
+                padding: EdgeInsets.only(bottom: 16.h),
+                child: ListItemShimmer(),
+              ),
+            )
           : _error != null
           ? Center(
               child: Column(
