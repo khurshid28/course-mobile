@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/toast_utils.dart';
+import '../../../../core/utils/image_utils.dart';
 import '../../../../injection_container.dart';
 import '../../../auth/data/models/user_model.dart';
 import '../../../auth/data/datasources/auth_remote_datasource.dart';
@@ -185,7 +186,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             : (widget.user.avatar != null &&
                                       widget.user.avatar!.isNotEmpty
                                   ? CachedNetworkImageProvider(
-                                      widget.user.avatar!,
+                                      ImageUtils.getFullImageUrl(
+                                        widget.user.avatar,
+                                      ),
                                     )
                                   : null),
                         child:

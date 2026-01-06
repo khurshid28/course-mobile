@@ -30,36 +30,26 @@ class DioClient {
             options.headers['Authorization'] = 'Bearer $token';
           }
 
-          if (kDebugMode) {
-            print('🌐 REQUEST[${options.method}] => PATH: ${options.path}');
-            print('📤 Headers: ${options.headers}');
+          // Log only POST, PUT, PATCH, DELETE requests
+          if (options.method != 'GET') {
+            print('🌐 ${options.method} => ${options.uri}');
             if (options.data != null) {
-              print('📦 Body: ${options.data}');
+              print('📤 Data: ${options.data}');
             }
           }
 
           return handler.next(options);
         },
         onResponse: (response, handler) {
-          if (kDebugMode) {
-            print(
-              '✅ RESPONSE[${response.statusCode}] => PATH: ${response.requestOptions.path}',
-            );
-            print('📥 Data: ${response.data}');
+          // Log only POST, PUT, PATCH, DELETE responses
+          if (response.requestOptions.method != 'GET') {
+            print('✅ ${response.statusCode} ${response.requestOptions.uri}');
+            print('📦 Response: ${response.data}');
           }
+
           return handler.next(response);
         },
         onError: (error, handler) {
-          if (kDebugMode) {
-            print(
-              '❌ ERROR[${error.response?.statusCode}] => PATH: ${error.requestOptions.path}',
-            );
-            print('💥 Error Message: ${error.message}');
-            if (error.response?.data != null) {
-              print('📛 Error Data: ${error.response?.data}');
-            }
-          }
-
           // Translate backend errors to Uzbek
           if (error.response?.data != null && error.response?.data is Map) {
             final errorData = error.response!.data as Map<String, dynamic>;
@@ -77,18 +67,19 @@ class DioClient {
     );
 
     // Add logger interceptor (only in debug mode)
-    if (kDebugMode) {
-      _dio.interceptors.add(
-        LogInterceptor(
-          requestBody: true,
-          responseBody: true,
-          requestHeader: true,
-          responseHeader: false,
-          error: true,
-          logPrint: (obj) => debugPrint(obj.toString()),
-        ),
-      );
-    }
+    // LogInterceptor disabled - using custom interceptor instead that only logs POST/PUT/PATCH/DELETE
+    // if (kDebugMode) {
+    //   _dio.interceptors.add(
+    //     LogInterceptor(
+    //       requestBody: true,
+    //       responseBody: true,
+    //       requestHeader: true,
+    //       responseHeader: false,
+    //       error: true,
+    //       logPrint: (obj) => debugPrint(obj.toString()),
+    //     ),
+    //   );
+    // }
   }
 
   Dio get dio => _dio;

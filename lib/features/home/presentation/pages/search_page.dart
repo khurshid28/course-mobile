@@ -6,6 +6,7 @@ import 'package:lottie/lottie.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/shimmer_widgets.dart';
 import '../../../../core/utils/format_utils.dart';
+import '../../../../core/utils/image_utils.dart';
 import '../../data/datasources/course_remote_datasource.dart';
 import '../../data/datasources/category_remote_datasource.dart';
 import '../../../../injection_container.dart';
@@ -18,10 +19,10 @@ class SearchPage extends StatefulWidget {
   const SearchPage({Key? key, this.categoryId}) : super(key: key);
 
   @override
-  State<SearchPage> createState() => _SearchPageState();
+  State<SearchPage> createState() => SearchPageState();
 }
 
-class _SearchPageState extends State<SearchPage>
+class SearchPageState extends State<SearchPage>
     with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   final _searchController = TextEditingController();
   late TabController _tabController;
@@ -58,6 +59,35 @@ class _SearchPageState extends State<SearchPage>
     _loadDefaultCourses();
     if (_selectedCategoryId != null) {
       _loadCoursesByCategory(_selectedCategoryId!);
+    }
+  }
+
+  @override
+  void didUpdateWidget(SearchPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Kategoriya o'zgarganda yangilash
+    if (oldWidget.categoryId != widget.categoryId) {
+      setState(() {
+        _selectedCategoryId = widget.categoryId;
+      });
+
+      // Yangi kategoriya bo'yicha filtrlaymiz
+      if (_selectedCategoryId != null) {
+        if (_tabController.index == 0) {
+          // Courses tab
+          _loadCoursesByCategory(_selectedCategoryId!);
+        } else {
+          // Teachers tab
+          _searchTeachers(_searchController.text);
+        }
+      } else {
+        // Kategoriya olib tashlangan bo'lsa, barcha natijalarni ko'rsatamiz
+        setState(() {
+          _courseResults = _allCourses;
+          _teacherResults = _allTeachers;
+        });
+      }
     }
   }
 
@@ -98,6 +128,33 @@ class _SearchPageState extends State<SearchPage>
       });
     } catch (e) {
       if (!mounted) return;
+    }
+  }
+
+  // Public method to update category from MainPage
+  void updateCategory(int? categoryId) {
+    if (_selectedCategoryId == categoryId) return;
+
+    setState(() {
+      _selectedCategoryId = categoryId;
+      _searchController.clear(); // Qidiruv matnini tozalaymiz
+    });
+
+    // Yangi kategoriya bo'yicha filtrlaymiz
+    if (_selectedCategoryId != null) {
+      if (_tabController.index == 0) {
+        // Courses tab
+        _loadCoursesByCategory(_selectedCategoryId!);
+      } else {
+        // Teachers tab
+        _searchTeachers('');
+      }
+    } else {
+      // Kategoriya olib tashlangan bo'lsa, barcha natijalarni ko'rsatamiz
+      setState(() {
+        _courseResults = _allCourses;
+        _teacherResults = _allTeachers;
+      });
     }
   }
 
@@ -717,11 +774,17 @@ class _SearchPageState extends State<SearchPage>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Lottie.asset(
-            'assets/animations/loading.json',
-            width: 150.w,
-            height: 150.h,
-            fit: BoxFit.contain,
+          Container(
+            padding: EdgeInsets.all(24.w),
+            decoration: BoxDecoration(
+              color: AppColors.secondary,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              size: 80.sp,
+              color: AppColors.textSecondary.withOpacity(0.5),
+            ),
           ),
           SizedBox(height: 24.h),
           Text(
@@ -731,6 +794,16 @@ class _SearchPageState extends State<SearchPage>
               fontWeight: FontWeight.w600,
               color: AppColors.textSecondary,
             ),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            'Boshqa so\'rovlar bilan qayta urinib ko\'ring',
+            style: TextStyle(
+              fontSize: 14.sp,
+              color: AppColors.textSecondary.withOpacity(0.7),
+            ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -932,10 +1005,13 @@ class _SearchPageState extends State<SearchPage>
       ),
       child: ListTile(
         contentPadding: EdgeInsets.all(12.w),
-        leading: teacher['avatar'] != null
+        leading:
+            teacher['avatar'] != null && teacher['avatar'].toString().isNotEmpty
             ? CircleAvatar(
                 radius: 30.r,
-                backgroundImage: CachedNetworkImageProvider(teacher['avatar']),
+                backgroundImage: CachedNetworkImageProvider(
+                  ImageUtils.getFullImageUrl(teacher['avatar']),
+                ),
                 backgroundColor: AppColors.border,
               )
             : CircleAvatar(

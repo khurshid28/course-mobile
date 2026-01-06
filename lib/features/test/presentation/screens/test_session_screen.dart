@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'dart:async';
 import '../../data/models/test_model.dart';
 import '../../data/repositories/test_repository.dart';
+import '../../../home/presentation/pages/results_page.dart';
 
 class TestSessionScreen extends StatefulWidget {
   final TestSessionModel session;
@@ -393,14 +394,29 @@ class _TestSessionScreenState extends State<TestSessionScreen>
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+                if (result['receivedCertificate'] == true) {
+                  // Navigate to ResultsPage with certificate tab selected
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (context) => const ResultsPage(initialTab: 1),
+                    ),
+                  );
+                }
+              },
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text('OK', style: TextStyle(fontSize: 16)),
+              child: Text(
+                result['receivedCertificate'] == true
+                    ? 'Sertifikatni ko\'rish'
+                    : 'OK',
+                style: const TextStyle(fontSize: 16),
+              ),
             ),
           ),
         ],
@@ -451,6 +467,45 @@ class _TestSessionScreenState extends State<TestSessionScreen>
       },
       child: Scaffold(
         appBar: AppBar(
+          leading: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+                iconSize: 18,
+                padding: EdgeInsets.zero,
+                onPressed: () async {
+                  // Show confirmation dialog before leaving test
+                  final shouldLeave = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Testdan chiqish'),
+                      content: const Text(
+                        'Rostdan ham testdan chiqmoqchimisiz? Javoblaringiz saqlanadi.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Yo\'q'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Ha'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (shouldLeave == true && mounted) {
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+            ),
+          ),
           title: Text(widget.session.test.title),
           actions: [
             // Timer

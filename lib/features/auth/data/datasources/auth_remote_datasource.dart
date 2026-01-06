@@ -85,7 +85,10 @@ class AuthRemoteDataSource {
   Future<UserModel> getProfile() async {
     try {
       final response = await _dioClient.get('/auth/profile');
-      return UserModel.fromJson(response.data);
+      print('🔥 Backend response data: ${response.data}');
+      final user = UserModel.fromJson(response.data);
+      print('✅ Parsed user model - Avatar: ${user.avatar}');
+      return user;
     } catch (e) {
       AppLogger.error('Failed to get profile: $e');
       rethrow;

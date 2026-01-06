@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/toast_utils.dart';
 import '../../../../core/utils/format_utils.dart';
+import '../../../../core/utils/image_utils.dart';
 import '../../../../core/widgets/shimmer_widgets.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../injection_container.dart';
@@ -46,7 +47,19 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
+    _clearImageCache();
     _loadUserData();
+  }
+
+  Future<void> _clearImageCache() async {
+    // Clear both cached_network_image and Flutter image cache
+    try {
+      await CachedNetworkImage.evictFromCache(_user?.avatar ?? '');
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
+    } catch (e) {
+      // Ignore errors
+    }
   }
 
   Future<void> _loadUserData() async {
@@ -115,6 +128,68 @@ class _ProfilePageState extends State<ProfilePage> {
 
       ToastUtils.showError(context, e);
     }
+  }
+
+  void _showImageViewer(String imageUrl) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            Center(
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl,
+                  fit: BoxFit.contain,
+                  placeholder: (context, url) => Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  ),
+                  errorWidget: (context, url, error) => Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.broken_image,
+                          color: Colors.white,
+                          size: 64.sp,
+                        ),
+                        SizedBox(height: 16.h),
+                        Text(
+                          'Rasmni yuklab bo\'lmadi',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16.sp,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 40.h,
+              right: 16.w,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  icon: Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _pickAndUploadImage() async {
@@ -324,11 +399,10 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     final avatarUrl = _user?.avatar;
-    final fullAvatarUrl = avatarUrl != null && avatarUrl.isNotEmpty
-        ? (avatarUrl.startsWith('http')
-              ? avatarUrl
-              : '${AppConstants.baseUrl}$avatarUrl')
-        : null;
+
+    print('👤 User: ${_user?.firstName} ${_user?.surname}');
+    print('📸 Avatar URL from _user: $avatarUrl');
+
     final userName = _user != null
         ? '${_user!.firstName ?? ''} ${_user!.surname ?? ''}'.trim()
         : 'Foydalanuvchi';
@@ -398,9 +472,57 @@ class _ProfilePageState extends State<ProfilePage> {
                             SizedBox(height: 8.h),
                             // Avatar with Active Courses Badge
                             GestureDetector(
-                              onTap: _isUploadingImage
-                                  ? null
-                                  : _pickAndUploadImage,
+                              onTap: () {
+                                if (_isUploadingImage) return;
+
+                                // Show options: view or upload
+                                if (avatarUrl != null && avatarUrl.isNotEmpty) {
+                                  showModalBottomSheet(
+                                    context: context,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.vertical(
+                                        top: Radius.circular(20.r),
+                                      ),
+                                    ),
+                                    builder: (context) => Container(
+                                      padding: EdgeInsets.all(20.w),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          ListTile(
+                                            leading: Icon(
+                                              Icons.visibility,
+                                              color: AppColors.primary,
+                                            ),
+                                            title: Text('Rasmni ko\'rish'),
+                                            onTap: () {
+                                              Navigator.pop(context);
+                                              _showImageViewer(
+                                                ImageUtils.getFullImageUrl(
+                                                  avatarUrl,
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                          ListTile(
+                                            leading: Icon(
+                                              Icons.photo_camera,
+                                              color: AppColors.primary,
+                                            ),
+                                            title: Text('Rasmni o\'zgartirish'),
+                                            onTap: () {
+                                              Navigator.pop(context);
+                                              _pickAndUploadImage();
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                } else {
+                                  _pickAndUploadImage();
+                                }
+                              },
                               child: Stack(
                                 children: [
                                   Container(
@@ -419,39 +541,61 @@ class _ProfilePageState extends State<ProfilePage> {
                                       ],
                                     ),
                                     child: CircleAvatar(
-                                      key: ValueKey(
-                                        '${fullAvatarUrl ?? 'no-avatar'}_${DateTime.now().millisecondsSinceEpoch}',
-                                      ),
+                                      key: ValueKey(avatarUrl ?? 'no-avatar'),
                                       radius: 50.r,
                                       backgroundColor: Colors.white,
-                                      child: fullAvatarUrl != null
+                                      child:
+                                          avatarUrl != null &&
+                                              avatarUrl.isNotEmpty
                                           ? ClipOval(
-                                              child: CachedNetworkImage(
-                                                imageUrl: fullAvatarUrl,
-                                                width: 100.r,
-                                                height: 100.r,
-                                                fit: BoxFit.cover,
-                                                placeholder: (context, url) =>
-                                                    Center(
-                                                      child:
-                                                          CircularProgressIndicator(
-                                                            color: AppColors
-                                                                .primary,
-                                                            strokeWidth: 2,
-                                                          ),
-                                                    ),
-                                                errorWidget:
-                                                    (context, url, error) =>
-                                                        Text(
-                                                          userInitials,
-                                                          style: TextStyle(
-                                                            fontSize: 32.sp,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                            color: AppColors
-                                                                .primary,
-                                                          ),
+                                              child: Builder(
+                                                builder: (context) {
+                                                  final fullUrl =
+                                                      ImageUtils.getFullImageUrl(
+                                                        avatarUrl,
+                                                      );
+                                                  print(
+                                                    '🖼️ Avatar URL: $avatarUrl',
+                                                  );
+                                                  print(
+                                                    '🌐 Full URL: $fullUrl',
+                                                  );
+                                                  return CachedNetworkImage(
+                                                    imageUrl: fullUrl,
+                                                    width: 100.r,
+                                                    height: 100.r,
+                                                    fit: BoxFit.cover,
+                                                    placeholder:
+                                                        (
+                                                          context,
+                                                          url,
+                                                        ) => Center(
+                                                          child:
+                                                              CircularProgressIndicator(
+                                                                color: AppColors
+                                                                    .primary,
+                                                                strokeWidth: 2,
+                                                              ),
                                                         ),
+                                                    errorWidget:
+                                                        (context, url, error) {
+                                                          print(
+                                                            '❌ Avatar load error: $error',
+                                                          );
+                                                          return Text(
+                                                            userInitials,
+                                                            style: TextStyle(
+                                                              fontSize: 32.sp,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                              color: AppColors
+                                                                  .primary,
+                                                            ),
+                                                          );
+                                                        },
+                                                  );
+                                                },
                                               ),
                                             )
                                           : Text(

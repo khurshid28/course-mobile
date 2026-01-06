@@ -2,14 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:io';
+import 'dart:convert';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:http/http.dart' as http;
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/toast_utils.dart';
 import '../../../../core/widgets/shimmer_widgets.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../injection_container.dart';
 import '../../data/datasources/test_remote_datasource.dart';
+import '../../../test/presentation/screens/certificate_list_screen.dart';
 
 class ResultsPage extends StatefulWidget {
-  const ResultsPage({super.key});
+  final int initialTab;
+
+  const ResultsPage({super.key, this.initialTab = 0});
 
   @override
   State<ResultsPage> createState() => _ResultsPageState();
@@ -28,7 +38,11 @@ class _ResultsPageState extends State<ResultsPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: widget.initialTab,
+    );
     _loadResults();
   }
 
@@ -57,6 +71,15 @@ class _ResultsPageState extends State<ResultsPage>
       if (!mounted) return;
 
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<String> _getToken() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(AppConstants.tokenKey) ?? '';
+    } catch (e) {
+      return '';
     }
   }
 
@@ -580,42 +603,175 @@ class _ResultsPageState extends State<ResultsPage>
               ),
             ],
             SizedBox(height: 16.h),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () async {
-                  try {
-                    final testDataSource = getIt<TestRemoteDataSource>();
-                    await testDataSource.downloadCertificate(certificateNo);
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      // Open PDF viewer directly
+                      final token = await _getToken();
+                      if (!mounted) return;
 
-                    if (!mounted) return;
-
-                    ToastUtils.showSuccess(
-                      context,
-                      'Sertifikat yuklanmoqda...',
-                    );
-
-                    // Open in browser for download
-                    // TODO: Implement url_launcher or download to device
-                  } catch (e) {
-                    if (!mounted) return;
-                    ToastUtils.showError(context, e);
-                  }
-                },
-                icon: const Icon(Icons.download, size: 18),
-                label: Text(
-                  'Sertifikatni yuklab olish',
-                  style: GoogleFonts.inter(fontSize: 14.sp),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: 12.h),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10.r),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => PdfViewScreen(
+                            pdfUrl:
+                                '${AppConstants.baseUrl}/tests/certificates/download/$certificateNo',
+                            certificateNo: certificateNo,
+                            token: token,
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.visibility, size: 18),
+                    label: Text(
+                      'Ko\'rish',
+                      style: GoogleFonts.inter(fontSize: 14.sp),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(vertical: 12.h),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10.r),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                SizedBox(width: 8.w),
+                // Download button with custom SVG icon
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10.r),
+                  ),
+                  child: IconButton(
+                    onPressed: () async {
+                      try {
+                        // Download certificate
+                        final dir = await getApplicationDocumentsDirectory();
+                        final file = File(
+                          '${dir.path}/certificate_$certificateNo.pdf',
+                        );
+
+                        ToastUtils.showSuccess(context, 'Yuklab olinmoqda...');
+
+                        final response = await http.get(
+                          Uri.parse(
+                            '${AppConstants.baseUrl}/tests/certificates/download/$certificateNo',
+                          ),
+                          headers: {
+                            'Authorization': 'Bearer ${await _getToken()}',
+                          },
+                        );
+
+                        if (response.statusCode == 200) {
+                          await file.writeAsBytes(response.bodyBytes);
+
+                          // Copy to downloads folder
+                          final downloadsDir = Directory(
+                            '/storage/emulated/0/Download',
+                          );
+                          if (!await downloadsDir.exists()) {
+                            await downloadsDir.create(recursive: true);
+                          }
+
+                          final newPath =
+                              '${downloadsDir.path}/certificate_${certificateNo}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+                          await file.copy(newPath);
+
+                          if (!mounted) return;
+
+                          ToastUtils.showSuccess(
+                            context,
+                            'Yuklab olindi: Download',
+                          );
+                        } else {
+                          throw Exception('Yuklanmadi');
+                        }
+                      } catch (e) {
+                        if (!mounted) return;
+                        ToastUtils.showError(context, e);
+                      }
+                    },
+                    icon: SvgPicture.asset(
+                      'assets/icons/download.svg',
+                      width: 20.w,
+                      height: 20.h,
+                      colorFilter: const ColorFilter.mode(
+                        AppColors.primary,
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                    tooltip: 'Yuklab olish',
+                  ),
+                ),
+                SizedBox(width: 8.w),
+                // Share button with custom SVG icon
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10.r),
+                  ),
+                  child: IconButton(
+                    onPressed: () async {
+                      try {
+                        // Download and share certificate
+                        final dir = await getApplicationDocumentsDirectory();
+                        final file = File(
+                          '${dir.path}/certificate_$certificateNo.pdf',
+                        );
+
+                        if (await file.exists()) {
+                          // Share if already downloaded
+                          await Share.shareXFiles([
+                            XFile(file.path),
+                          ], text: 'Mening sertifikatim');
+                        } else {
+                          // Download first
+                          ToastUtils.showSuccess(
+                            context,
+                            'Yuklab olinmoqda...',
+                          );
+
+                          final response = await http.get(
+                            Uri.parse(
+                              '${AppConstants.baseUrl}/tests/certificates/download/$certificateNo',
+                            ),
+                            headers: {
+                              'Authorization': 'Bearer ${await _getToken()}',
+                            },
+                          );
+
+                          if (response.statusCode == 200) {
+                            await file.writeAsBytes(response.bodyBytes);
+
+                            if (!mounted) return;
+
+                            await Share.shareXFiles([
+                              XFile(file.path),
+                            ], text: 'Mening sertifikatim');
+                          }
+                        }
+                      } catch (e) {
+                        if (!mounted) return;
+                        ToastUtils.showError(context, e);
+                      }
+                    },
+                    icon: SvgPicture.asset(
+                      'assets/icons/share.svg',
+                      width: 20.w,
+                      height: 20.h,
+                      colorFilter: const ColorFilter.mode(
+                        AppColors.primary,
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                    tooltip: 'Ulashish',
+                  ),
+                ),
+              ],
             ),
           ],
         ),

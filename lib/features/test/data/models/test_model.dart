@@ -74,14 +74,31 @@ class TestQuestionModel {
   });
 
   factory TestQuestionModel.fromJson(Map<String, dynamic> json) {
+    // Parse options - handle both String (JSON array) and List
+    List<String> optionsList;
+    if (json['options'] is String) {
+      final optionsStr = json['options'] as String;
+      if (optionsStr.contains('[') && optionsStr.contains(']')) {
+        // JSON array format: ["option1","option2"]
+        optionsList = optionsStr
+            .replaceAll('[', '')
+            .replaceAll(']', '')
+            .split(',')
+            .map((e) => e.trim().replaceAll('"', '').replaceAll("'", ''))
+            .where((e) => e.isNotEmpty)
+            .toList();
+      } else {
+        // Comma-separated format
+        optionsList = optionsStr.split(',').map((e) => e.trim()).toList();
+      }
+    } else {
+      optionsList = List<String>.from(json['options']);
+    }
+
     return TestQuestionModel(
       id: json['id'],
       question: json['question'],
-      options: List<String>.from(
-        json['options'] is String
-            ? (json['options'] as String).split(',')
-            : json['options'],
-      ),
+      options: optionsList,
       order: json['order'],
     );
   }

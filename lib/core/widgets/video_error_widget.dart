@@ -20,11 +20,13 @@ class VideoErrorWidget extends StatelessWidget {
     return Container(
       color: Colors.black,
       child: Center(
-        child: Padding(
-          padding: EdgeInsets.all(32.w),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.all(32.w),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
               // Icon based on error type
               _buildErrorIcon(),
 
@@ -44,10 +46,19 @@ class VideoErrorWidget extends StatelessWidget {
               SizedBox(height: 12.h),
 
               // Error message
-              Text(
-                _getErrorDescription(),
-                style: TextStyle(color: Colors.grey.shade400, fontSize: 14.sp),
-                textAlign: TextAlign.center,
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.w),
+                child: Text(
+                  _getErrorDescription(),
+                  style: TextStyle(
+                    color: Colors.grey.shade400,
+                    fontSize: 14.sp,
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
 
               SizedBox(height: 32.h),
@@ -127,7 +138,7 @@ class VideoErrorWidget extends StatelessWidget {
             ],
           ),
         ),
-      ),
+      ),)
     );
   }
 

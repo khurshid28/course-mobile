@@ -24,6 +24,8 @@ class MainPageState extends State<MainPage> {
   late List<Widget> _pages;
   int? _selectedCategoryId;
   int _activeCoursesCount = 0;
+  final GlobalKey<SearchPageState> _searchPageKey =
+      GlobalKey<SearchPageState>();
 
   @override
   void initState() {
@@ -74,17 +76,19 @@ class MainPageState extends State<MainPage> {
   void _buildPages() {
     _pages = [
       const HomePage(),
-      SearchPage(categoryId: _selectedCategoryId),
+      SearchPage(key: _searchPageKey, categoryId: _selectedCategoryId),
       const PaymentsPage(),
       const ProfilePage(),
     ];
   }
 
   void updateSearchCategory(int? categoryId) {
-    setState(() {
-      _selectedCategoryId = categoryId;
-      _buildPages();
-    });
+    _selectedCategoryId = categoryId;
+
+    // SearchPage state ni to'g'ridan-to'g'ri yangilaymiz
+    if (_searchPageKey.currentState != null) {
+      _searchPageKey.currentState!.updateCategory(categoryId);
+    }
   }
 
   void changeTab(int index) {
@@ -96,27 +100,7 @@ class MainPageState extends State<MainPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        switchInCurve: Curves.easeInOut,
-        switchOutCurve: Curves.easeInOut,
-        transitionBuilder: (Widget child, Animation<double> animation) {
-          return FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0.0, 0.02),
-                end: Offset.zero,
-              ).animate(animation),
-              child: child,
-            ),
-          );
-        },
-        child: Container(
-          key: ValueKey<int>(_currentIndex),
-          child: _pages[_currentIndex],
-        ),
-      ),
+      body: IndexedStack(index: _currentIndex, children: _pages),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           boxShadow: [

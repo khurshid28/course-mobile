@@ -198,7 +198,7 @@ class _TestListScreenState extends State<TestListScreen> {
           ),
         ),
         title: Text(
-          'Test sinovlari',
+          'Kurs testlari',
           style: TextStyle(
             color: Colors.white,
             fontSize: 18.sp,

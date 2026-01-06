@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/toast_utils.dart';
+import '../../../../core/utils/image_utils.dart';
 import '../../../../core/widgets/course_rating_widget.dart';
 import '../../../../core/widgets/shimmer_widgets.dart';
 import '../../../../core/constants/app_constants.dart';
@@ -20,6 +21,7 @@ import 'video_player_page.dart';
 import '../../../test/presentation/screens/test_list_screen.dart';
 import '../../../test/data/repositories/test_repository.dart';
 import 'results_page.dart';
+import 'teacher_detail_page.dart';
 
 class CourseDetailPage extends StatefulWidget {
   final int courseId;
@@ -565,70 +567,103 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                     ],
                   ),
                   SizedBox(height: 16.h),
+                  InkWell(
+                    onTap: () {
+                      if (courseData?['teacher']?['id'] != null) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => TeacherDetailPage(
+                              teacherId: courseData!['teacher']['id'],
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(12.r),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 8.w,
+                        vertical: 8.h,
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 20.r,
+                            backgroundColor: AppColors.primary.withOpacity(0.1),
+                            child:
+                                courseData?['teacher']?['avatar'] != null &&
+                                    courseData!['teacher']['avatar']
+                                        .toString()
+                                        .isNotEmpty
+                                ? ClipOval(
+                                    child: CachedNetworkImage(
+                                      imageUrl:
+                                          courseData!['teacher']['avatar'],
+                                      width: 40.r,
+                                      height: 40.r,
+                                      fit: BoxFit.cover,
+                                      errorWidget: (context, url, error) =>
+                                          SvgPicture.asset(
+                                            'assets/icons/user.svg',
+                                            width: 20.w,
+                                            height: 20.h,
+                                            colorFilter: ColorFilter.mode(
+                                              AppColors.primary,
+                                              BlendMode.srcIn,
+                                            ),
+                                          ),
+                                    ),
+                                  )
+                                : SvgPicture.asset(
+                                    'assets/icons/user.svg',
+                                    width: 20.w,
+                                    height: 20.h,
+                                    colorFilter: ColorFilter.mode(
+                                      AppColors.primary,
+                                      BlendMode.srcIn,
+                                    ),
+                                  ),
+                          ),
+                          SizedBox(width: 12.w),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  courseData?['teacher']?['name'] ??
+                                      '${courseData?['teacher']?['firstName'] ?? ''} ${courseData?['teacher']?['surname'] ?? ''}',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 14.sp,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  courseData?['teacher']?['bio'] ??
+                                      'O\'qituvchi',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12.sp,
+                                    color: Colors.grey,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_forward_ios,
+                            size: 16.sp,
+                            color: Colors.grey,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                   Row(
                     children: [
-                      CircleAvatar(
-                        radius: 20.r,
-                        backgroundColor: AppColors.primary.withOpacity(0.1),
-                        child:
-                            courseData?['teacher']?['avatar'] != null &&
-                                courseData!['teacher']['avatar']
-                                    .toString()
-                                    .isNotEmpty
-                            ? ClipOval(
-                                child: CachedNetworkImage(
-                                  imageUrl: courseData!['teacher']['avatar'],
-                                  width: 40.r,
-                                  height: 40.r,
-                                  fit: BoxFit.cover,
-                                  errorWidget: (context, url, error) =>
-                                      SvgPicture.asset(
-                                        'assets/icons/user.svg',
-                                        width: 20.w,
-                                        height: 20.h,
-                                        colorFilter: ColorFilter.mode(
-                                          AppColors.primary,
-                                          BlendMode.srcIn,
-                                        ),
-                                      ),
-                                ),
-                              )
-                            : SvgPicture.asset(
-                                'assets/icons/user.svg',
-                                width: 20.w,
-                                height: 20.h,
-                                colorFilter: ColorFilter.mode(
-                                  AppColors.primary,
-                                  BlendMode.srcIn,
-                                ),
-                              ),
-                      ),
-                      SizedBox(width: 12.w),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${courseData?['teacher']?['firstName'] ?? ''} ${courseData?['teacher']?['surname'] ?? ''}',
-                              style: GoogleFonts.inter(
-                                fontSize: 14.sp,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              courseData?['teacher']?['bio'] ?? 'O\'qituvchi',
-                              style: GoogleFonts.inter(
-                                fontSize: 12.sp,
-                                color: Colors.grey,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
                       const Spacer(),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
@@ -1443,10 +1478,22 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                                         user['avatar'].toString().isNotEmpty
                                     ? ClipOval(
                                         child: CachedNetworkImage(
-                                          imageUrl: user['avatar'],
+                                          imageUrl: ImageUtils.getFullImageUrl(
+                                            user['avatar'],
+                                          ),
                                           width: 40.r,
                                           height: 40.r,
                                           fit: BoxFit.cover,
+                                          placeholder: (context, url) =>
+                                              SizedBox(
+                                                width: 20.w,
+                                                height: 20.h,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      color: AppColors.primary,
+                                                    ),
+                                              ),
                                           errorWidget: (context, url, error) =>
                                               SvgPicture.asset(
                                                 'assets/icons/user.svg',
@@ -1570,46 +1617,48 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                                             width: 100.w,
                                             height: 100.h,
                                             fit: BoxFit.cover,
-                                            placeholder: (context, url) =>
-                                                Container(
-                                                  color: Colors.grey.shade200,
-                                                  child: Center(
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                          strokeWidth: 2,
-                                                          color:
-                                                              AppColors.primary,
-                                                        ),
-                                                  ),
+                                            placeholder: (context, url) {
+                                              print('📥 Loading image: $url');
+                                              return Container(
+                                                color: Colors.grey.shade200,
+                                                child: Center(
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                        color:
+                                                            AppColors.primary,
+                                                      ),
                                                 ),
-                                            errorWidget:
-                                                (
-                                                  context,
-                                                  url,
-                                                  error,
-                                                ) => Container(
-                                                  color: Colors.grey.shade200,
-                                                  child: Column(
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .center,
-                                                    children: [
-                                                      Icon(
-                                                        Icons.broken_image,
+                                              );
+                                            },
+                                            errorWidget: (context, url, error) {
+                                              print(
+                                                '❌ Error loading image: $url',
+                                              );
+                                              print('Error details: $error');
+                                              return Container(
+                                                color: Colors.grey.shade200,
+                                                child: Column(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(
+                                                      Icons.broken_image,
+                                                      color: Colors.grey,
+                                                      size: 24.sp,
+                                                    ),
+                                                    SizedBox(height: 4.h),
+                                                    Text(
+                                                      'Yuklanmadi',
+                                                      style: TextStyle(
+                                                        fontSize: 10.sp,
                                                         color: Colors.grey,
-                                                        size: 24.sp,
                                                       ),
-                                                      SizedBox(height: 4.h),
-                                                      Text(
-                                                        'Yuklanmadi',
-                                                        style: TextStyle(
-                                                          fontSize: 10.sp,
-                                                          color: Colors.grey,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
+                                                    ),
+                                                  ],
                                                 ),
+                                              );
+                                            },
                                           ),
                                         ),
                                       ),
@@ -1630,6 +1679,10 @@ class _CourseDetailPageState extends State<CourseDetailPage>
 
   List<String> _parseImages(dynamic images) {
     if (images == null) return [];
+
+    print('=== PARSING IMAGES ===');
+    print('Images type: ${images.runtimeType}');
+    print('Images value: $images');
 
     List<String> imagePaths = [];
 
@@ -1665,8 +1718,10 @@ class _CourseDetailPageState extends State<CourseDetailPage>
       imagePaths = images.map((e) => e.toString()).toList();
     }
 
+    print('Parsed image paths: $imagePaths');
+
     // Convert relative paths to full URLs
-    return imagePaths.map((path) {
+    final fullUrls = imagePaths.map((path) {
       if (path.startsWith('http://') || path.startsWith('https://')) {
         return path; // Already a full URL
       } else if (path.startsWith('/')) {
@@ -1675,6 +1730,11 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         return '${AppConstants.baseUrl}/uploads/images/$path';
       }
     }).toList();
+
+    print('Full URLs: $fullUrls');
+    print('===================');
+
+    return fullUrls;
   }
 
   Widget _buildTestSection() {

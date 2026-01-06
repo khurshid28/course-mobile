@@ -6,7 +6,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/widgets/shimmer_widgets.dart';
+import '../../../../core/theme/app_colors.dart';
 
 class CertificateListScreen extends StatefulWidget {
   final String token;
@@ -40,21 +42,37 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
     });
 
     try {
+      print('=== LOADING CERTIFICATES ===');
+      print('Base URL: ${widget.baseUrl}');
+      print('Full URL: ${widget.baseUrl}/tests/certificates/my');
+      print('Token length: ${widget.token.length}');
+      print(
+        'Token: ${widget.token.length > 20 ? widget.token.substring(0, 20) : widget.token}...',
+      );
+
       final response = await http.get(
-        Uri.parse('${widget.baseUrl}/api/user/certificates'),
+        Uri.parse('${widget.baseUrl}/tests/certificates/my'),
         headers: {'Authorization': 'Bearer ${widget.token}'},
       );
 
+      print('Response Status: ${response.statusCode}');
+      print('Response Body: ${response.body}');
+
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
+        print('Certificates loaded: ${data.length}');
         setState(() {
           _certificates = data.cast<Map<String, dynamic>>();
           _isLoading = false;
         });
       } else {
-        throw Exception('Failed to load certificates');
+        throw Exception(
+          'Server xatoligi: ${response.statusCode} - ${response.body}',
+        );
       }
     } catch (e) {
+      print('=== CERTIFICATE LOAD ERROR ===');
+      print('Error: $e');
       setState(() {
         _error = e.toString();
         _isLoading = false;
@@ -107,16 +125,15 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Sertifikat saqlandi: ${file.path}'),
+            content: Text('Sertifikat saqlandi'),
             action: SnackBarAction(
-              label: 'Ulashish',
-              onPressed: () => _shareCertificate(file.path, courseName),
+              label: 'Ko\'rish',
+              onPressed: () => _viewPdf(file.path, certificateNo),
             ),
           ),
         );
 
-        // PDF ni ko'rsatish
-        _viewPdf(file.path, certificateNo);
+        // PDF ni ko'rsatmaymiz, faqat yuklab olamiz
       } else {
         print('=== DOWNLOAD FAILED ===');
         print('Status Code: ${response.statusCode}');
@@ -157,6 +174,54 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
             PdfViewScreen(filePath: filePath, certificateNo: certificateNo),
       ),
     );
+  }
+
+  // Backend dan to'g'ridan-to'g'ri PDF ni ko'rish
+  Future<void> _viewPdfFromBackend(String certificateNo) async {
+    try {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('PDF ochilmoqda...')));
+
+      // Avval cache'dan tekshiramiz
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/certificate_$certificateNo.pdf');
+
+      if (await file.exists()) {
+        // Cache'dan ochish
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PdfViewScreen(
+              filePath: file.path,
+              certificateNo: certificateNo,
+            ),
+          ),
+        );
+      } else {
+        // Backend URL dan ochish
+        if (!mounted) return;
+        final pdfUrl =
+            '${widget.baseUrl}/tests/certificates/download/$certificateNo';
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PdfViewScreen(
+              pdfUrl: pdfUrl,
+              certificateNo: certificateNo,
+              token: widget.token,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Xatolik: $e')));
+    }
   }
 
   void _verifyCertificate() {
@@ -459,6 +524,18 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
                 children: [
                   Expanded(
                     child: ElevatedButton.icon(
+                      onPressed: () => _viewPdfFromBackend(certificateNo),
+                      icon: const Icon(Icons.visibility),
+                      label: const Text('Ko\'rish'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.amber[800],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton.icon(
                       onPressed: () =>
                           _downloadCertificate(certificateNo, courseName),
                       icon: const Icon(Icons.download),
@@ -480,7 +557,12 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
                       if (await file.exists()) {
                         _shareCertificate(file.path, courseName);
                       } else {
-                        _downloadCertificate(certificateNo, courseName);
+                        // Download first then share
+                        await _downloadCertificate(certificateNo, courseName);
+                        // After download, share it
+                        if (await file.exists()) {
+                          _shareCertificate(file.path, courseName);
+                        }
                       }
                     },
                     icon: const Icon(Icons.share),
@@ -499,37 +581,310 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
   }
 }
 
-class PdfViewScreen extends StatelessWidget {
-  final String filePath;
+class PdfViewScreen extends StatefulWidget {
+  final String? filePath;
   final String certificateNo;
+  final String? pdfUrl;
+  final String? token;
 
   const PdfViewScreen({
     Key? key,
-    required this.filePath,
+    this.filePath,
     required this.certificateNo,
+    this.pdfUrl,
+    this.token,
   }) : super(key: key);
+
+  @override
+  State<PdfViewScreen> createState() => _PdfViewScreenState();
+}
+
+class _PdfViewScreenState extends State<PdfViewScreen> {
+  String? _localFilePath;
+  bool _isLoading = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.filePath != null) {
+      _localFilePath = widget.filePath;
+    } else if (widget.pdfUrl != null) {
+      _downloadPdfFromUrl();
+    }
+  }
+
+  Future<void> _downloadPdfFromUrl() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final response = await http.get(
+        Uri.parse(widget.pdfUrl!),
+        headers: widget.token != null
+            ? {'Authorization': 'Bearer ${widget.token}'}
+            : {},
+      );
+
+      if (response.statusCode == 200) {
+        final dir = await getApplicationDocumentsDirectory();
+        final file = File(
+          '${dir.path}/certificate_${widget.certificateNo}.pdf',
+        );
+        await file.writeAsBytes(response.bodyBytes);
+
+        if (mounted) {
+          setState(() {
+            _localFilePath = file.path;
+            _isLoading = false;
+          });
+        }
+      } else {
+        throw Exception('PDF yuklanmadi: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _downloadToGallery(BuildContext context) async {
+    try {
+      if (_localFilePath == null) {
+        throw Exception('Fayl topilmadi');
+      }
+
+      final file = File(_localFilePath!);
+      if (!await file.exists()) {
+        throw Exception('Fayl topilmadi');
+      }
+
+      // Copy to downloads directory
+      final downloadsDir = Directory('/storage/emulated/0/Download');
+      if (!await downloadsDir.exists()) {
+        await downloadsDir.create(recursive: true);
+      }
+
+      final newPath =
+          '${downloadsDir.path}/certificate_${widget.certificateNo}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+      await file.copy(newPath);
+
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Yuklab olindi: Download'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Xatolik: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Sertifikat: $certificateNo'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: () async {
-              await Share.shareXFiles([XFile(filePath)]);
-            },
+        backgroundColor: AppColors.primary,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+          padding: const EdgeInsets.all(8),
+        ),
+        title: Text(
+          'Sertifikat: ${widget.certificateNo}',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
           ),
+        ),
+        actions: [
+          if (!_isLoading && _localFilePath != null) ...[
+            IconButton(
+              icon: SvgPicture.asset(
+                'assets/icons/download.svg',
+                width: 24,
+                height: 24,
+                colorFilter: const ColorFilter.mode(
+                  Colors.white,
+                  BlendMode.srcIn,
+                ),
+              ),
+              tooltip: 'Yuklab olish',
+              onPressed: () => _downloadToGallery(context),
+            ),
+            IconButton(
+              icon: SvgPicture.asset(
+                'assets/icons/share.svg',
+                width: 24,
+                height: 24,
+                colorFilter: const ColorFilter.mode(
+                  Colors.white,
+                  BlendMode.srcIn,
+                ),
+              ),
+              tooltip: 'Ulashish',
+              onPressed: () async {
+                try {
+                  if (_localFilePath == null) {
+                    throw Exception('Fayl topilmadi');
+                  }
+
+                  final file = File(_localFilePath!);
+                  if (!await file.exists()) {
+                    throw Exception('Fayl topilmadi');
+                  }
+
+                  // Share PDF file
+                  await Share.shareXFiles(
+                    [XFile(_localFilePath!)],
+                    subject: 'Sertifikat: ${widget.certificateNo}',
+                    text: 'Mening ${widget.certificateNo} sertifikatim',
+                  );
+                } catch (e) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Ulashishda xatolik: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
+            ),
+          ],
         ],
       ),
-      body: PDFView(
-        filePath: filePath,
-        enableSwipe: true,
-        swipeHorizontal: false,
-        autoSpacing: true,
-        pageFling: true,
-      ),
+      body: _isLoading
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    color: Colors.amber[700],
+                    strokeWidth: 3,
+                  ),
+                  SizedBox(height: 24),
+                  Text(
+                    'PDF yuklanmoqda...',
+                    style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+                  ),
+                ],
+              ),
+            )
+          : _error != null
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error_outline, color: Colors.red[400], size: 64),
+                    const SizedBox(height: 24),
+                    Text(
+                      'PDF yuklashda xatolik',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      _error!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        if (widget.pdfUrl != null) {
+                          _downloadPdfFromUrl();
+                        } else {
+                          Navigator.pop(context);
+                        }
+                      },
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Qayta urinish'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.amber[700],
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : _localFilePath != null
+          ? PDFView(
+              filePath: _localFilePath!,
+              enableSwipe: true,
+              swipeHorizontal: false,
+              autoSpacing: true,
+              pageFling: true,
+              pageSnap: true,
+              defaultPage: 0,
+              fitPolicy: FitPolicy.BOTH,
+              preventLinkNavigation: false,
+              onRender: (pages) {
+                print('PDF rendered with $pages pages');
+              },
+              onError: (error) {
+                print('PDF View Error: $error');
+                if (mounted) {
+                  setState(() {
+                    _error = 'PDF ko\'rsatishda xatolik: $error';
+                  });
+                }
+              },
+              onPageError: (page, error) {
+                print('PDF Page $page Error: $error');
+              },
+              onViewCreated: (PDFViewController pdfViewController) {
+                print('PDF View created successfully');
+              },
+              onPageChanged: (int? page, int? total) {
+                print('Page changed: $page/$total');
+              },
+            )
+          : Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.picture_as_pdf,
+                      size: 64,
+                      color: Colors.grey[400],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'PDF topilmadi',
+                      style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ),
+            ),
     );
   }
 }
