@@ -77,13 +77,16 @@ class _TeachersPageState extends State<TeachersPage> {
               itemCount: 5,
               itemBuilder: (context, index) => const TeacherCardShimmer(),
             )
-          : ListView.builder(
-              padding: EdgeInsets.all(16.w),
-              itemCount: _teachers.length,
-              itemBuilder: (context, index) {
-                final teacher = _teachers[index];
-                return _buildTeacherCard(teacher);
-              },
+          : RefreshIndicator(
+              onRefresh: _loadTeachers,
+              child: ListView.builder(
+                padding: EdgeInsets.all(16.w),
+                itemCount: _teachers.length,
+                itemBuilder: (context, index) {
+                  final teacher = _teachers[index];
+                  return _buildTeacherCard(teacher);
+                },
+              ),
             ),
     );
   }
@@ -117,19 +120,18 @@ class _TeachersPageState extends State<TeachersPage> {
                               width: 70.r,
                               height: 70.r,
                               fit: BoxFit.cover,
-                              placeholder: (context, url) =>
-                                  Shimmer.fromColors(
-                                    baseColor: AppColors.shimmerBase,
-                                    highlightColor: AppColors.shimmerHighlight,
-                                    child: Container(
-                                      width: 70.r,
-                                      height: 70.r,
-                                      decoration: const BoxDecoration(
-                                        color: Colors.white,
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
+                              placeholder: (context, url) => Shimmer.fromColors(
+                                baseColor: AppColors.shimmerBase,
+                                highlightColor: AppColors.shimmerHighlight,
+                                child: Container(
+                                  width: 70.r,
+                                  height: 70.r,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
                                   ),
+                                ),
+                              ),
                               errorWidget: (context, url, error) => Text(
                                 teacher['name']?.substring(0, 1) ?? 'T',
                                 style: TextStyle(

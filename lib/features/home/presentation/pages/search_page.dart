@@ -22,7 +22,7 @@ class SearchPage extends StatefulWidget {
 }
 
 class _SearchPageState extends State<SearchPage>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   final _searchController = TextEditingController();
   late TabController _tabController;
   bool _isLoadingCourses = false;
@@ -36,10 +36,20 @@ class _SearchPageState extends State<SearchPage>
   bool _teachersLoaded = false; // Flag to check if teachers are loaded
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
+      // When switching tabs, apply category filter
+      if (_tabController.indexIsChanging) {
+        if (_tabController.index == 1) {
+          // Switched to teachers tab
+          _searchTeachers(_searchController.text);
+        }
+      }
       setState(() {}); // Rebuild to update icon colors
     });
     _selectedCategoryId = widget.categoryId;
@@ -101,8 +111,8 @@ class _SearchPageState extends State<SearchPage>
   void _performSearch(String query) {
     if (query.isEmpty && _selectedCategoryId == null) {
       setState(() {
-        _courseResults = [];
-        _teacherResults = [];
+        _courseResults = _allCourses;
+        _teacherResults = _allTeachers;
       });
       return;
     }
@@ -113,6 +123,10 @@ class _SearchPageState extends State<SearchPage>
         _loadCoursesByCategory(_selectedCategoryId!, query);
       } else if (query.isNotEmpty) {
         _searchCourses(query);
+      } else {
+        setState(() {
+          _courseResults = _allCourses;
+        });
       }
     } else {
       // Teachers tab
@@ -187,31 +201,14 @@ class _SearchPageState extends State<SearchPage>
     // Apply category filter if selected
     if (_selectedCategoryId != null) {
       filteredTeachers = filteredTeachers.where((teacher) {
-        final categoriesData = teacher['categories'];
-        if (categoriesData == null) return false;
+        // Check if teacher has courses in the selected category
+        final courses = teacher['courses'];
+        if (courses == null || courses is! List) return false;
 
-        if (categoriesData is String) {
-          // If string, check if any category matches
-          return categoriesData.split(',').any((cat) {
-            final categoryName = cat.trim().toLowerCase();
-            final selectedCategory = _categories.firstWhere(
-              (c) => c['id'] == _selectedCategoryId,
-              orElse: () => <String, dynamic>{},
-            );
-            final selectedName =
-                (selectedCategory['nameUz'] ?? selectedCategory['name'] ?? '')
-                    .toString()
-                    .toLowerCase();
-            return categoryName.contains(selectedName) ||
-                selectedName.contains(categoryName);
-          });
-        } else if (categoriesData is List) {
-          // If list, check if any category id matches
-          return categoriesData.any((cat) {
-            return cat['id'] == _selectedCategoryId;
-          });
-        }
-        return false;
+        // Check if any course belongs to the selected category
+        return courses.any((course) {
+          return course['categoryId'] == _selectedCategoryId;
+        });
       }).toList();
     }
 
@@ -230,6 +227,7 @@ class _SearchPageState extends State<SearchPage>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 80.h,
@@ -467,8 +465,14 @@ class _SearchPageState extends State<SearchPage>
                               onTap: () {
                                 setState(() {
                                   _selectedCategoryId = null;
-                                  _courseResults = [];
+                                  _courseResults = _allCourses;
                                 });
+
+                                // Update teachers tab too
+                                if (_tabController.index == 1 &&
+                                    _teachersLoaded) {
+                                  _searchTeachers('');
+                                }
                               },
                               child: Container(
                                 padding: EdgeInsets.symmetric(
@@ -504,15 +508,20 @@ class _SearchPageState extends State<SearchPage>
                         setState(() {
                           _selectedCategoryId = newCategoryId;
                         });
-                        if (newCategoryId != null) {
-                          _loadCoursesByCategory(
-                            newCategoryId,
-                            _searchController.text.isEmpty
-                                ? null
-                                : _searchController.text,
-                          );
+
+                        // Update both courses and teachers based on selected category
+                        if (_tabController.index == 0) {
+                          // Courses tab
+                          if (newCategoryId != null) {
+                            _loadCoursesByCategory(newCategoryId, null);
+                          } else {
+                            setState(() {
+                              _courseResults = _allCourses;
+                            });
+                          }
                         } else {
-                          _performSearch(_searchController.text);
+                          // Teachers tab
+                          _searchTeachers('');
                         }
                       },
                       child: Container(
@@ -598,19 +607,48 @@ class _SearchPageState extends State<SearchPage>
     }
 
     if (_courseResults.isEmpty) {
-      return _buildEmptyState(
-        icon: Icons.search_off,
-        message: 'Kurslar topilmadi',
+      return RefreshIndicator(
+        onRefresh: () async {
+          await _loadDefaultCourses();
+          if (_selectedCategoryId != null) {
+            _loadCoursesByCategory(
+              _selectedCategoryId!,
+              _searchController.text.isEmpty ? null : _searchController.text,
+            );
+          }
+        },
+        child: ListView(
+          children: [
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.6,
+              child: _buildEmptyState(
+                icon: Icons.search_off,
+                message: 'Kurslar topilmadi',
+              ),
+            ),
+          ],
+        ),
       );
     }
 
-    return ListView.builder(
-      padding: EdgeInsets.all(16.w),
-      itemCount: _courseResults.length,
-      itemBuilder: (context, index) {
-        final course = _courseResults[index];
-        return _buildCourseItem(course);
+    return RefreshIndicator(
+      onRefresh: () async {
+        await _loadDefaultCourses();
+        if (_selectedCategoryId != null) {
+          _loadCoursesByCategory(
+            _selectedCategoryId!,
+            _searchController.text.isEmpty ? null : _searchController.text,
+          );
+        }
       },
+      child: ListView.builder(
+        padding: EdgeInsets.all(16.w),
+        itemCount: _courseResults.length,
+        itemBuilder: (context, index) {
+          final course = _courseResults[index];
+          return _buildCourseItem(course);
+        },
+      ),
     );
   }
 
@@ -635,19 +673,42 @@ class _SearchPageState extends State<SearchPage>
         : _allTeachers;
 
     if (displayTeachers.isEmpty) {
-      return _buildEmptyState(
-        icon: Icons.search_off,
-        message: 'Hech narsa topilmadi',
+      return RefreshIndicator(
+        onRefresh: () async {
+          setState(() {
+            _teachersLoaded = false;
+          });
+          await _searchTeachers(_searchController.text);
+        },
+        child: ListView(
+          children: [
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.6,
+              child: _buildEmptyState(
+                icon: Icons.search_off,
+                message: 'Hech narsa topilmadi',
+              ),
+            ),
+          ],
+        ),
       );
     }
 
-    return ListView.builder(
-      padding: EdgeInsets.all(16.w),
-      itemCount: displayTeachers.length,
-      itemBuilder: (context, index) {
-        final teacher = displayTeachers[index];
-        return _buildTeacherItem(teacher);
+    return RefreshIndicator(
+      onRefresh: () async {
+        setState(() {
+          _teachersLoaded = false;
+        });
+        await _searchTeachers(_searchController.text);
       },
+      child: ListView.builder(
+        padding: EdgeInsets.all(16.w),
+        itemCount: displayTeachers.length,
+        itemBuilder: (context, index) {
+          final teacher = displayTeachers[index];
+          return _buildTeacherItem(teacher);
+        },
+      ),
     );
   }
 

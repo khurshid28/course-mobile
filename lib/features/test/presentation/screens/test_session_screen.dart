@@ -308,6 +308,13 @@ class _TestSessionScreenState extends State<TestSessionScreen>
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.amber.withOpacity(0.4),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Row(
                   children: [
@@ -326,6 +333,55 @@ class _TestSessionScreenState extends State<TestSessionScreen>
                           color: Colors.white,
                         ),
                       ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else if (!isPassed) ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.red[400]!, Colors.red[600]!],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.red.withOpacity(0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.info_outline,
+                          size: 28,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Sertifikat olish uchun minimal ${result['requiredScore'] ?? 70}% ball kerak',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Qayta urinib ko\'ring. Keyingi safar muvaffaqiyatli bo\'lasiz!',
+                      style: TextStyle(fontSize: 13, color: Colors.white),
+                      textAlign: TextAlign.center,
                     ),
                   ],
                 ),
@@ -592,49 +648,18 @@ class _TestSessionScreenState extends State<TestSessionScreen>
       ),
       child: Row(
         children: [
-          // Previous button
-          if (_currentPage > 0)
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.2),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: OutlinedButton(
-                  onPressed: () {
-                    _pageController.previousPage(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                    );
-                  },
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    side: BorderSide(color: Colors.blue.shade300, width: 2),
-                  ),
-                  child: const Text('Oldingi', style: TextStyle(fontSize: 15)),
-                ),
-              ),
-            ),
-          if (_currentPage > 0) const SizedBox(width: 16),
           // Next / Finish button
           Expanded(
-            flex: 2,
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
                 gradient: LinearGradient(
                   colors: _currentPage < totalQuestions - 1
-                      ? [Colors.blue.shade400, Colors.blue.shade600]
-                      : [Colors.green.shade400, Colors.green.shade600],
+                      ? [Color(0xFF1976D2), Color(0xFF1565C0)]
+                      : [Color(0xFF43A047), Color(0xFF2E7D32)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -642,65 +667,70 @@ class _TestSessionScreenState extends State<TestSessionScreen>
                         (_currentPage < totalQuestions - 1
                                 ? Colors.blue
                                 : Colors.green)
-                            .withOpacity(0.4),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
+                            .withOpacity(0.5),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                    spreadRadius: 1,
                   ),
                 ],
               ),
-              child: ElevatedButton(
-                onPressed: _isSubmitting
-                    ? null
-                    : () {
-                        if (_currentPage < totalQuestions - 1) {
-                          _pageController.nextPage(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                          );
-                        } else {
-                          _completeTest();
-                        }
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _isSubmitting
+                      ? null
+                      : () {
+                          if (_currentPage < totalQuestions - 1) {
+                            _pageController.nextPage(
+                              duration: const Duration(milliseconds: 400),
+                              curve: Curves.easeInOutCubic,
+                            );
+                          } else {
+                            _completeTest();
+                          }
+                        },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    child: _isSubmitting
+                        ? const Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 3,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                              ),
+                            ),
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                _currentPage < totalQuestions - 1
+                                    ? Icons.arrow_forward_rounded
+                                    : Icons.check_circle_rounded,
+                                size: 24,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                _currentPage < totalQuestions - 1
+                                    ? 'Keyingi savol'
+                                    : 'Testni tugatish',
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
                   ),
                 ),
-                child: _isSubmitting
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.white,
-                          ),
-                        ),
-                      )
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            _currentPage < totalQuestions - 1
-                                ? 'Keyingi'
-                                : 'Tugatish',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Icon(
-                            _currentPage < totalQuestions - 1
-                                ? Icons.arrow_forward
-                                : Icons.check_circle,
-                            size: 20,
-                          ),
-                        ],
-                      ),
               ),
             ),
           ),

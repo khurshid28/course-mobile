@@ -132,7 +132,8 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         _userCourseRating = rating;
         // Update average rating from response
         if (courseData != null && response['averageRating'] != null) {
-          courseData!['rating'] = response['averageRating'];
+          final avgRating = response['averageRating'];
+          courseData!['rating'] = avgRating is num ? avgRating.toDouble() : 0.0;
           if (response['totalRatings'] != null) {
             courseData!['_count'] = courseData!['_count'] ?? {};
             courseData!['_count']['ratings'] = response['totalRatings'];
@@ -160,7 +161,8 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         _userCourseRating = null;
         // Update average rating from response
         if (courseData != null && response['averageRating'] != null) {
-          courseData!['rating'] = response['averageRating'];
+          final avgRating = response['averageRating'];
+          courseData!['rating'] = avgRating is num ? avgRating.toDouble() : 0.0;
           if (response['totalRatings'] != null) {
             courseData!['_count'] = courseData!['_count'] ?? {};
             courseData!['_count']['ratings'] = response['totalRatings'];
@@ -1112,6 +1114,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     }
 
     return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         // Not enrolled message
         if (!_isEnrolled)
@@ -1548,58 +1551,14 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                                       margin: EdgeInsets.only(right: 8.w),
                                       child: GestureDetector(
                                         onTap: () {
-                                          // Show full image
-                                          showDialog(
-                                            context: context,
-                                            builder: (context) => Dialog(
-                                              backgroundColor:
-                                                  Colors.transparent,
-                                              child: Stack(
-                                                children: [
-                                                  Center(
-                                                    child: CachedNetworkImage(
-                                                      imageUrl: imageUrl,
-                                                      fit: BoxFit.contain,
-                                                      placeholder:
-                                                          (
-                                                            context,
-                                                            url,
-                                                          ) => Center(
-                                                            child:
-                                                                CircularProgressIndicator(
-                                                                  color: AppColors
-                                                                      .primary,
-                                                                ),
-                                                          ),
-                                                      errorWidget:
-                                                          (
-                                                            context,
-                                                            url,
-                                                            error,
-                                                          ) => Icon(
-                                                            Icons.error,
-                                                            color: Colors.white,
-                                                          ),
-                                                    ),
-                                                  ),
-                                                  Positioned(
-                                                    top: 10,
-                                                    right: 10,
-                                                    child: IconButton(
-                                                      onPressed: () =>
-                                                          Navigator.pop(
-                                                            context,
-                                                          ),
-                                                      icon: Icon(
-                                                        Icons.close,
-                                                        color: Colors.white,
-                                                        size: 30.sp,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
+                                          // Show full image with pagination
+                                          final allImages = _parseImages(
+                                            comment['images'],
+                                          );
+                                          _showImageGallery(
+                                            context,
+                                            allImages,
+                                            imgIndex,
                                           );
                                         },
                                         child: ClipRRect(
@@ -1966,6 +1925,148 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     } catch (e) {
       return '';
     }
+  }
+
+  void _showImageGallery(
+    BuildContext context,
+    List<String> images,
+    int initialIndex,
+  ) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (context) =>
+          _ImageGalleryDialog(images: images, initialIndex: initialIndex),
+    );
+  }
+}
+
+class _ImageGalleryDialog extends StatefulWidget {
+  final List<String> images;
+  final int initialIndex;
+
+  const _ImageGalleryDialog({required this.images, required this.initialIndex});
+
+  @override
+  State<_ImageGalleryDialog> createState() => _ImageGalleryDialogState();
+}
+
+class _ImageGalleryDialogState extends State<_ImageGalleryDialog> {
+  late PageController _pageController;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: EdgeInsets.zero,
+      child: Stack(
+        children: [
+          // Image PageView
+          PageView.builder(
+            controller: _pageController,
+            onPageChanged: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+            itemCount: widget.images.length,
+            itemBuilder: (context, index) {
+              return Center(
+                child: InteractiveViewer(
+                  minScale: 0.5,
+                  maxScale: 4.0,
+                  child: CachedNetworkImage(
+                    imageUrl: widget.images[index],
+                    fit: BoxFit.contain,
+                    placeholder: (context, url) => Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    ),
+                    errorWidget: (context, url, error) => Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.broken_image,
+                            color: Colors.white,
+                            size: 64.sp,
+                          ),
+                          SizedBox(height: 16.h),
+                          Text(
+                            'Rasmni yuklab bo\'lmadi',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16.sp,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+
+          // Close button
+          Positioned(
+            top: 40.h,
+            right: 16.w,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.5),
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: Icon(Icons.close, color: Colors.white, size: 28.sp),
+              ),
+            ),
+          ),
+
+          // Pagination indicator (like Telegram)
+          if (widget.images.length > 1)
+            Positioned(
+              bottom: 40.h,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 16.w,
+                    vertical: 8.h,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(20.r),
+                  ),
+                  child: Text(
+                    '${_currentIndex + 1}/${widget.images.length}',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
 

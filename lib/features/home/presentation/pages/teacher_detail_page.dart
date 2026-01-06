@@ -837,7 +837,7 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
                             color: AppColors.textPrimary,
                             fontWeight: FontWeight.w500,
                           ),
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
