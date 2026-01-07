@@ -4,11 +4,13 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lottie/lottie.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/format_utils.dart';
 import '../../../../core/utils/toast_utils.dart';
 import '../../data/datasources/payment_remote_datasource.dart';
 import '../../../../injection_container.dart';
 import 'main_page.dart';
+import 'balance_topup_page.dart';
 
 class CheckoutPage extends StatefulWidget {
   final Map<String, dynamic> course;
@@ -189,9 +191,212 @@ class _CheckoutPageState extends State<CheckoutPage> {
       final errorMessage = e.toString();
       if (errorMessage.contains('Insufficient balance') ||
           errorMessage.contains('yetarli emas')) {
-        ToastUtils.showError(
-          context,
-          'Mablag\' yetarli emas. Balansni to\'ldiring.',
+        // Save context and get current balance
+        final scaffoldContext = context;
+        double currentBalance = 0;
+
+        try {
+          final paymentDataSource = getIt<PaymentRemoteDataSource>();
+          currentBalance = await paymentDataSource.getBalance();
+        } catch (balanceError) {
+          print('Error getting balance: $balanceError');
+        }
+
+        if (!mounted) return;
+
+        // Show beautiful dialog with option to topup balance
+        showDialog(
+          context: scaffoldContext,
+          barrierDismissible: false,
+          builder: (dialogContext) => Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24.r),
+            ),
+            elevation: 8,
+            child: Container(
+              padding: EdgeInsets.all(24.w),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24.r),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Icon
+                  Container(
+                    padding: EdgeInsets.all(16.w),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.primary.withOpacity(0.1),
+                          AppColors.primary.withOpacity(0.05),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.account_balance_wallet_outlined,
+                      color: AppColors.primary,
+                      size: 48.sp,
+                    ),
+                  ),
+                  SizedBox(height: 20.h),
+                  // Title
+                  Text(
+                    'Mablag\' yetarli emas',
+                    style: TextStyle(
+                      fontSize: 20.sp,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  SizedBox(height: 12.h),
+                  // Message
+                  Text(
+                    'Kursni sotib olish uchun balansingizda yetarli mablag\' yo\'q.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14.sp,
+                      color: AppColors.textSecondary,
+                      height: 1.5,
+                    ),
+                  ),
+                  SizedBox(height: 8.h),
+                  Text(
+                    'Balansni to\'ldirishni xohlaysizmi?',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14.sp,
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  SizedBox(height: 24.h),
+                  // Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(dialogContext),
+                          style: OutlinedButton.styleFrom(
+                            padding: EdgeInsets.symmetric(vertical: 14.h),
+                            side: BorderSide(
+                              color: AppColors.border,
+                              width: 1.5,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12.r),
+                            ),
+                          ),
+                          child: Text(
+                            'Bekor qilish',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 12.w),
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                AppColors.primary,
+                                AppColors.primary.withOpacity(0.8),
+                              ],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12.r),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton(
+                            onPressed: () async {
+                              // Close dialog first
+                              Navigator.of(dialogContext).pop();
+
+                              // Small delay to ensure dialog is closed
+                              await Future.delayed(
+                                const Duration(milliseconds: 150),
+                              );
+
+                              // Check if widget is still mounted after delay
+                              if (!mounted) return;
+
+                              try {
+                                // Navigate to balance topup page using scaffold context
+                                final result =
+                                    await Navigator.of(scaffoldContext).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => BalanceTopupPage(
+                                          currentBalance: currentBalance,
+                                        ),
+                                      ),
+                                    );
+
+                                // If topup was successful, show success message
+                                if (result == true && mounted) {
+                                  ToastUtils.showSuccess(
+                                    scaffoldContext,
+                                    'Balans to\'ldirildi! Endi kursni sotib olishingiz mumkin.',
+                                  );
+                                }
+                              } catch (e) {
+                                print('Balance topup navigation error: $e');
+                                if (!mounted) return;
+                                ToastUtils.showError(
+                                  scaffoldContext,
+                                  'Xatolik yuz berdi. Qaytadan urinib ko\'ring.',
+                                );
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              padding: EdgeInsets.symmetric(vertical: 14.h),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12.r),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.add_card,
+                                  color: Colors.white,
+                                  size: 18.sp,
+                                ),
+                                SizedBox(width: 6.w),
+                                Text(
+                                  'To\'ldirish',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15.sp,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
         );
       } else {
         ToastUtils.showError(context, e);
@@ -243,10 +448,38 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     borderRadius: BorderRadius.circular(12.r),
                     child: widget.course['thumbnail'] != null
                         ? CachedNetworkImage(
-                            imageUrl: widget.course['thumbnail'],
+                            imageUrl:
+                                widget.course['thumbnail']
+                                    .toString()
+                                    .startsWith('http')
+                                ? widget.course['thumbnail'].toString()
+                                : '${AppConstants.baseUrl}${widget.course['thumbnail']}',
                             width: 80.w,
                             height: 80.w,
                             fit: BoxFit.cover,
+                            placeholder: (context, url) => Container(
+                              width: 80.w,
+                              height: 80.w,
+                              color: AppColors.secondary,
+                              child: Icon(
+                                Icons.image,
+                                color: AppColors.textHint,
+                                size: 32.sp,
+                              ),
+                            ),
+                            errorWidget: (context, url, error) {
+                              print('Checkout image error: $url - $error');
+                              return Container(
+                                width: 80.w,
+                                height: 80.w,
+                                color: AppColors.primary.withOpacity(0.1),
+                                child: Icon(
+                                  Icons.school,
+                                  color: AppColors.primary,
+                                  size: 32.sp,
+                                ),
+                              );
+                            },
                           )
                         : Container(
                             width: 80.w,
@@ -301,9 +534,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
               {'id': 'ONE_YEAR', 'label': '1 yillik', 'recommended': true},
             ].map((duration) {
               final isSelected = _selectedDuration == duration['id'];
-              final durationInfo = _calculateSubscriptionPrice(duration['id'] as String);
+              final durationInfo = _calculateSubscriptionPrice(
+                duration['id'] as String,
+              );
               final hasDiscount = (durationInfo['discountPercent'] as int) > 0;
-              
+
               return GestureDetector(
                 onTap: () => setState(() {
                   _selectedDuration = duration['id'] as String;
@@ -643,9 +878,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             color: Colors.orange,
                             fontWeight: FontWeight.w600,
                           ),
-                        ),],
-                      ),
-                    
+                        ),
+                      ],
+                    ),
                   ],
                   if (_promoCodeData != null) ...[
                     SizedBox(height: 8.h),

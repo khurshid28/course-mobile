@@ -6,6 +6,8 @@ import '../../../../core/widgets/shimmer_widgets.dart';
 import '../../data/datasources/notification_remote_datasource.dart';
 import '../../../../injection_container.dart';
 import '../../../../core/utils/toast_utils.dart';
+import 'course_detail_page.dart';
+import 'main_page.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -82,6 +84,43 @@ class _NotificationsPageState extends State<NotificationsPage> {
     } catch (e) {
       if (!mounted) return;
       ToastUtils.showError(context, e);
+    }
+  }
+
+  void _handleNotificationTap(Map<String, dynamic> notification) async {
+    // Mark as read
+    if (notification['isRead'] != true) {
+      await _markAsRead(notification['id']);
+    }
+
+    // Navigate to link if exists
+    final link = notification['link'];
+    if (link != null && link.toString().isNotEmpty) {
+      // Parse link like '/courses/1' or '/courses'
+      final parts = link
+          .toString()
+          .split('/')
+          .where((p) => p.isNotEmpty)
+          .toList();
+
+      if (parts.isNotEmpty && parts[0] == 'courses') {
+        if (parts.length >= 2) {
+          // /courses/1 - Navigate to specific course
+          final courseId = int.tryParse(parts[1]);
+
+          if (courseId != null) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => CourseDetailPage(courseId: courseId),
+              ),
+            );
+          }
+        } else {
+          // /courses - Navigate to search page (bottom nav tab 1)
+          Navigator.pop(context, 1); // Return 1 for search tab
+        }
+      }
     }
   }
 
@@ -194,6 +233,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
             )
           : ListView.separated(
               padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+              physics: const BouncingScrollPhysics(),
               itemCount: _notifications.length,
               separatorBuilder: (context, index) => SizedBox(height: 16.h),
               itemBuilder: (context, index) {
@@ -205,11 +245,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
                 return GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    if (!isRead) {
-                      _markAsRead(notification['id']);
-                    }
-                  },
+                  onTap: () => _handleNotificationTap(notification),
                   child: Container(
                     decoration: BoxDecoration(
                       color: isRead
@@ -344,8 +380,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                         color: AppColors.textSecondary,
                                         height: 1.5,
                                       ),
-                                      maxLines: 3,
-                                      overflow: TextOverflow.ellipsis,
                                     ),
                                     SizedBox(height: 12.h),
                                     Row(

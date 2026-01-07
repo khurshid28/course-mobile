@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:lottie/lottie.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/widgets/shimmer_widgets.dart';
 import '../../../../core/utils/format_utils.dart';
 import '../../../../core/utils/image_utils.dart';
@@ -844,7 +845,10 @@ class SearchPageState extends State<SearchPage>
                   borderRadius: BorderRadius.circular(12.r),
                   child: course['thumbnail'] != null
                       ? CachedNetworkImage(
-                          imageUrl: course['thumbnail'],
+                          imageUrl:
+                              course['thumbnail'].toString().startsWith('http')
+                              ? course['thumbnail']
+                              : '${AppConstants.baseUrl}${course['thumbnail']}',
                           width: 80.w,
                           height: 80.w,
                           fit: BoxFit.cover,

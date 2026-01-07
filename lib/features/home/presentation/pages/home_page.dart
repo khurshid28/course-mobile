@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/toast_utils.dart';
 import '../../../../core/utils/format_utils.dart';
 import '../../../../core/utils/page_transition.dart';
@@ -172,9 +173,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   ),
                 ),
                 onPressed: () async {
-                  await context.pushWithFade(const NotificationsPage());
+                  final result = await context.pushWithFade(
+                    const NotificationsPage(),
+                  );
                   // Reload unread count after returning from notifications
                   _loadUnreadNotificationCount();
+
+                  // Handle tab change if result is a tab index
+                  if (result is int && mounted) {
+                    final mainPageState = context
+                        .findAncestorStateOfType<MainPageState>();
+                    if (mainPageState != null) {
+                      mainPageState.changeTab(result);
+                    }
+                  }
                 },
               ),
               if (_unreadNotificationCount > 0)
@@ -268,73 +280,109 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                       ),
                                     ],
                                   ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(20.r),
-                                    child: Stack(
-                                      children: [
-                                        Positioned.fill(
-                                          child: CachedNetworkImage(
-                                            imageUrl: banner['image'] ?? '',
-                                            fit: BoxFit.cover,
-                                            placeholder: (context, url) =>
-                                                Container(
-                                                  color: AppColors.border,
-                                                ),
-                                            errorWidget:
-                                                (context, url, error) =>
-                                                    Container(
-                                                      color: AppColors.primary
-                                                          .withOpacity(0.1),
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      // Extract course ID from link
+                                      final link = banner['link'] ?? '';
+                                      if (link.isNotEmpty) {
+                                        // Parse link like '/courses/1'
+                                        final parts = link.split('/');
+                                        if (parts.length >= 3 &&
+                                            parts[1] == 'courses') {
+                                          final courseId = int.tryParse(
+                                            parts[2],
+                                          );
+                                          if (courseId != null) {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) =>
+                                                    CourseDetailPage(
+                                                      courseId: courseId,
                                                     ),
+                                              ),
+                                            );
+                                          }
+                                        }
+                                      }
+                                    },
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(20.r),
+                                      child: Stack(
+                                        children: [
+                                          Positioned.fill(
+                                            child: CachedNetworkImage(
+                                              imageUrl:
+                                                  (banner['image'] ?? '')
+                                                      .toString()
+                                                      .startsWith('http')
+                                                  ? banner['image'] ?? ''
+                                                  : '${AppConstants.baseUrl}${banner['image'] ?? ''}',
+                                              fit: BoxFit.cover,
+                                              placeholder: (context, url) =>
+                                                  Container(
+                                                    color: AppColors.border,
+                                                  ),
+                                              errorWidget:
+                                                  (context, url, error) =>
+                                                      Container(
+                                                        color: AppColors.primary
+                                                            .withOpacity(0.1),
+                                                      ),
+                                            ),
                                           ),
-                                        ),
-                                        Positioned.fill(
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              gradient: LinearGradient(
-                                                colors: [
-                                                  Colors.black.withOpacity(0.6),
-                                                  Colors.transparent,
-                                                ],
-                                                begin: Alignment.bottomCenter,
-                                                end: Alignment.topCenter,
+                                          Positioned.fill(
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  colors: [
+                                                    Colors.black.withOpacity(
+                                                      0.6,
+                                                    ),
+                                                    Colors.transparent,
+                                                  ],
+                                                  begin: Alignment.bottomCenter,
+                                                  end: Alignment.topCenter,
+                                                ),
                                               ),
                                             ),
                                           ),
-                                        ),
-                                        Positioned(
-                                          bottom: 20.h,
-                                          left: 20.w,
-                                          right: 20.w,
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                banner['title'] ?? '',
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 24.sp,
-                                                  fontWeight: FontWeight.bold,
+                                          Positioned(
+                                            bottom: 20.h,
+                                            left: 20.w,
+                                            right: 20.w,
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  banner['title'] ?? '',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 24.sp,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                 ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                              SizedBox(height: 4.h),
-                                              Text(
-                                                banner['description'] ?? '',
-                                                style: TextStyle(
-                                                  color: Colors.white
-                                                      .withOpacity(0.9),
-                                                  fontSize: 14.sp,
+                                                SizedBox(height: 4.h),
+                                                Text(
+                                                  banner['description'] ?? '',
+                                                  style: TextStyle(
+                                                    color: Colors.white
+                                                        .withOpacity(0.9),
+                                                    fontSize: 14.sp,
+                                                  ),
+                                                  maxLines: 2,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                 ),
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ],
+                                              ],
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 );
@@ -437,9 +485,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         itemCount: _teachers.length > 5 ? 5 : _teachers.length,
                         itemBuilder: (context, index) {
                           final teacher = _teachers[index];
+                          final avatarUrl = teacher['avatar'] != null
+                              ? '${AppConstants.baseUrl}${teacher['avatar']}'
+                              : null;
                           final hasAvatar =
-                              teacher['avatar'] != null &&
-                              teacher['avatar'].toString().trim().isNotEmpty;
+                              avatarUrl != null && avatarUrl.isNotEmpty;
 
                           return GestureDetector(
                             behavior: HitTestBehavior.opaque,
@@ -488,7 +538,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                       child: hasAvatar
                                           ? ClipOval(
                                               child: CachedNetworkImage(
-                                                imageUrl: teacher['avatar'],
+                                                imageUrl: avatarUrl!,
                                                 width: 72.r,
                                                 height: 72.r,
                                                 fit: BoxFit.cover,
@@ -638,7 +688,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     if (category['image'] != null)
                                       Positioned.fill(
                                         child: CachedNetworkImage(
-                                          imageUrl: category['image'],
+                                          imageUrl:
+                                              category['image']
+                                                  .toString()
+                                                  .startsWith('http')
+                                              ? category['image']
+                                              : '${AppConstants.baseUrl}${category['image']}',
                                           fit: BoxFit.cover,
                                           placeholder: (context, url) =>
                                               Container(
@@ -802,7 +857,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     width: double.infinity,
                     child: course['thumbnail'] != null
                         ? CachedNetworkImage(
-                            imageUrl: course['thumbnail'],
+                            imageUrl:
+                                '${AppConstants.baseUrl}${course['thumbnail']}',
                             fit: BoxFit.cover,
                             placeholder: (context, url) => ShimmerLoading(
                               child: Container(color: Colors.white),

@@ -86,48 +86,50 @@ class _CourseRatingWidgetState extends State<CourseRatingWidget> {
           ),
           SizedBox(height: 20.h),
 
-          // Average Rating Display
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                widget.averageRating.toStringAsFixed(1),
-                style: TextStyle(
-                  fontSize: 48.sp,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
+          // Average Rating Display (only show if there are ratings or user has rated)
+          if (widget.totalRatings > 0 || widget.userRating != null) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  widget.averageRating.toStringAsFixed(1),
+                  style: TextStyle(
+                    fontSize: 48.sp,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
                 ),
-              ),
-              SizedBox(width: 12.w),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: List.generate(5, (index) {
-                      return Icon(
-                        index < widget.averageRating.floor()
-                            ? Icons.star_rounded
-                            : (index < widget.averageRating
-                                  ? Icons.star_half_rounded
-                                  : Icons.star_outline_rounded),
-                        color: Colors.amber,
-                        size: 20.sp,
-                      );
-                    }),
-                  ),
-                  SizedBox(height: 4.h),
-                  Text(
-                    '${widget.totalRatings} ta baho',
-                    style: TextStyle(
-                      fontSize: 13.sp,
-                      color: AppColors.textSecondary,
+                SizedBox(width: 12.w),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: List.generate(5, (index) {
+                        return Icon(
+                          index < widget.averageRating.floor()
+                              ? Icons.star_rounded
+                              : (index < widget.averageRating
+                                    ? Icons.star_half_rounded
+                                    : Icons.star_outline_rounded),
+                          color: Colors.amber,
+                          size: 20.sp,
+                        );
+                      }),
                     ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          SizedBox(height: 24.h),
+                    SizedBox(height: 4.h),
+                    Text(
+                      '${widget.totalRatings} ta baho',
+                      style: TextStyle(
+                        fontSize: 13.sp,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            SizedBox(height: 24.h),
+          ],
 
           // User Rating Section
           if (widget.userRating != null) ...[

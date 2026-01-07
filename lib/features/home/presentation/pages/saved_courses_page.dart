@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/shimmer_widgets.dart';
 import '../../../../core/utils/format_utils.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../data/datasources/course_remote_datasource.dart';
 import '../../data/datasources/saved_courses_local_datasource.dart';
 import '../../../../injection_container.dart';
@@ -67,7 +68,9 @@ class _SavedCoursesPageState extends State<SavedCoursesPage> {
       );
 
       setState(() {
-        _savedCourses = remoteCourses.map((e) => e as Map<String, dynamic>).toList();
+        _savedCourses = remoteCourses
+            .map((e) => e as Map<String, dynamic>)
+            .toList();
       });
     } catch (e) {
       // Silent fail - local data is already shown
@@ -133,47 +136,47 @@ class _SavedCoursesPageState extends State<SavedCoursesPage> {
                 itemBuilder: (context, index) => const CourseCardShimmer(),
               )
             : _savedCourses.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SvgPicture.asset(
-                        'assets/icons/heart.svg',
-                        width: 80.w,
-                        height: 80.h,
-                        colorFilter: ColorFilter.mode(
-                          AppColors.textHint,
-                          BlendMode.srcIn,
-                        ),
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SvgPicture.asset(
+                      'assets/icons/heart.svg',
+                      width: 80.w,
+                      height: 80.h,
+                      colorFilter: ColorFilter.mode(
+                        AppColors.textHint,
+                        BlendMode.srcIn,
                       ),
-                      SizedBox(height: 16.h),
-                      Text(
-                        'Saqlangan kurslar yo\'q',
-                        style: TextStyle(
-                          fontSize: 18.sp,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
+                    ),
+                    SizedBox(height: 16.h),
+                    Text(
+                      'Saqlangan kurslar yo\'q',
+                      style: TextStyle(
+                        fontSize: 18.sp,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
                       ),
-                      SizedBox(height: 8.h),
-                      Text(
-                        'Sizda hozircha saqlangan kurslar yo\'q',
-                        style: TextStyle(
-                          fontSize: 14.sp,
-                          color: AppColors.textSecondary,
-                        ),
+                    ),
+                    SizedBox(height: 8.h),
+                    Text(
+                      'Sizda hozircha saqlangan kurslar yo\'q',
+                      style: TextStyle(
+                        fontSize: 14.sp,
+                        color: AppColors.textSecondary,
                       ),
-                    ],
-                  ),
-                )
-              : ListView.builder(
-                  padding: EdgeInsets.all(16.w),
-                  itemCount: _savedCourses.length,
-                  itemBuilder: (context, index) {
-                    final course = _savedCourses[index];
-                    return _buildCourseCard(course);
-                  },
+                    ),
+                  ],
                 ),
+              )
+            : ListView.builder(
+                padding: EdgeInsets.all(16.w),
+                itemCount: _savedCourses.length,
+                itemBuilder: (context, index) {
+                  final course = _savedCourses[index];
+                  return _buildCourseCard(course);
+                },
+              ),
       ),
     );
   }
@@ -211,23 +214,26 @@ class _SavedCoursesPageState extends State<SavedCoursesPage> {
               child: Stack(
                 children: [
                   CachedNetworkImage(
-                    imageUrl: course['thumbnail'] ?? '',
+                    imageUrl: course['thumbnail'].toString().startsWith('http')
+                        ? course['thumbnail'].toString()
+                        : '${AppConstants.baseUrl}${course['thumbnail']}',
                     height: 180.h,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      height: 180.h,
-                      color: AppColors.shimmerBase,
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      height: 180.h,
-                      color: AppColors.secondary,
-                      child: Icon(
-                        Icons.image,
-                        size: 48.sp,
-                        color: AppColors.textHint,
-                      ),
-                    ),
+                    placeholder: (context, url) =>
+                        Container(height: 180.h, color: AppColors.shimmerBase),
+                    errorWidget: (context, url, error) {
+                      print('Image error: $error for URL: $url');
+                      return Container(
+                        height: 180.h,
+                        color: AppColors.secondary,
+                        child: Icon(
+                          Icons.image,
+                          size: 48.sp,
+                          color: AppColors.textHint,
+                        ),
+                      );
+                    },
                   ),
                   Positioned(
                     top: 12.h,
@@ -283,7 +289,11 @@ class _SavedCoursesPageState extends State<SavedCoursesPage> {
                   SizedBox(height: 8.h),
                   Row(
                     children: [
-                      Icon(Icons.person, size: 16.sp, color: AppColors.textSecondary),
+                      Icon(
+                        Icons.person,
+                        size: 16.sp,
+                        color: AppColors.textSecondary,
+                      ),
                       SizedBox(width: 4.w),
                       Text(
                         course['teacher']?['name'] ?? 'O\'qituvchi',

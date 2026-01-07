@@ -1,12 +1,17 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
 import 'dart:io';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/toast_utils.dart';
+import '../../../../core/utils/format_utils.dart';
 import '../../../../core/utils/image_utils.dart';
 import '../../../../core/widgets/course_rating_widget.dart';
 import '../../../../core/widgets/shimmer_widgets.dart';
@@ -129,6 +134,12 @@ class _CourseDetailPageState extends State<CourseDetailPage>
       final response = await dataSource.rateCourse(widget.courseId, rating);
       if (!mounted) return;
 
+      print('=== RATING RESPONSE DEBUG ===');
+      print('Response: $response');
+      print('Average rating: ${response['averageRating']}');
+      print('Total ratings: ${response['totalRatings']}');
+      print('============================');
+
       // Update local state with response data
       setState(() {
         _userCourseRating = rating;
@@ -143,11 +154,17 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         }
       });
 
+      // Refresh course data to get updated rating
+      await _loadCourseDetails();
+
       ToastUtils.showSuccess(context, 'Baho muvaffaqiyatli saqlandi!');
-    } catch (e) {
+    } on DioException catch (e) {
       print('Rating error: $e');
       if (mounted) {
-        ToastUtils.showError(context, 'Baholashda xatolik: ${e.toString()}');
+        final errorMessage = e.response?.data != null && e.response!.data is Map
+            ? (e.response!.data['message'] ?? 'Baholashda xatolik')
+            : 'Baholashda xatolik';
+        ToastUtils.showError(context, errorMessage);
       }
     }
   }
@@ -313,6 +330,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
       print('isFree value: ${course['isFree']}');
       print('isFree type: ${course['isFree'].runtimeType}');
       print('Course rating: ${course['rating']}');
+      print('Course rating type: ${course['rating'].runtimeType}');
       print('Total ratings count: ${course['_count']?['ratings']}');
       print('=========================');
 
@@ -322,6 +340,11 @@ class _CourseDetailPageState extends State<CourseDetailPage>
         isSaved = course['isSaved'] ?? false;
         isLoading = false;
       });
+
+      print('=== AFTER SETSTATE ===');
+      print('courseData rating after setState: ${courseData!['rating']}');
+      print('courseData _count after setState: ${courseData!['_count']}');
+      print('======================');
     } catch (e) {
       print('Load course error: $e');
       if (!mounted) return;
@@ -372,8 +395,12 @@ class _CourseDetailPageState extends State<CourseDetailPage>
 
   String _formatPrice(dynamic price) {
     if (price == null) return '0';
-    if (price is num) return price.toString();
-    if (price is String) return price;
+    if (price is num) return FormatUtils.formatPrice(price.toDouble());
+    if (price is String) {
+      final parsed = double.tryParse(price);
+      if (parsed != null) return FormatUtils.formatPrice(parsed);
+      return price;
+    }
     return '0';
   }
 
@@ -412,6 +439,118 @@ class _CourseDetailPageState extends State<CourseDetailPage>
       'DEBUG: Purchase button SHOWN - isEnrolled=$isEnrolled, isFree=$isFree',
     );
     return true;
+  }
+
+  Future<void> _shareCourse() async {
+    if (courseData == null) return;
+
+    try {
+      final title = courseData!['title'] ?? 'Kurs';
+      final teacherName =
+          courseData?['teacher']?['name'] ??
+          '${courseData?['teacher']?['firstName'] ?? ''} ${courseData?['teacher']?['surname'] ?? ''}'
+              .trim();
+      final isFree = courseData!['isFree'] == true;
+      final price = isFree
+          ? 'Bepul'
+          : '${_formatPrice(courseData!['price'])} so\'m';
+
+      // Convert rating to double first, then format
+      final ratingValue = courseData!['rating'];
+      String rating;
+      if (ratingValue is num) {
+        rating = ratingValue.toStringAsFixed(1);
+      } else if (ratingValue is String) {
+        final parsed = double.tryParse(ratingValue);
+        rating = parsed?.toStringAsFixed(1) ?? '0.0';
+      } else {
+        rating = '0.0';
+      }
+
+      // Get video count and total duration
+      int videoCount = 0;
+      int totalDuration = 0;
+      final sections = courseData!['sections'] as List<dynamic>? ?? [];
+      for (var section in sections) {
+        final videos = section['videos'] as List<dynamic>? ?? [];
+        videoCount += videos.length;
+        for (var video in videos) {
+          final duration = video['duration'];
+          if (duration != null) {
+            if (duration is int) {
+              totalDuration += duration;
+            } else if (duration is String) {
+              totalDuration += int.tryParse(duration) ?? 0;
+            }
+          }
+        }
+      }
+
+      // Format duration
+      final hours = totalDuration ~/ 3600;
+      final minutes = (totalDuration % 3600) ~/ 60;
+      String durationText;
+      if (hours > 0) {
+        durationText = '$hours soat ${minutes > 0 ? "$minutes daqiqa" : ""}';
+      } else {
+        durationText = '$minutes daqiqa';
+      }
+
+      // Get enrollment count
+      final enrollmentCount = courseData!['_count']?['enrollments'] ?? 0;
+
+      // Check if certificate is available
+      final hasCertificate = courseData!['hasCertificate'] == true;
+
+      final shareText =
+          '''
+🎓 $title
+
+👨‍🏫 O'qituvchi: $teacherName
+⭐ Reyting: $rating
+💰 Narxi: $price
+📹 Video darslar: $videoCount ta
+⏱ Davomiyligi: $durationText
+👥 Sotib olganlar: $enrollmentCount ta
+${hasCertificate ? '🏆 Sertifikat: Bor' : '📜 Sertifikat: Yo\'q'}
+
+Bu kursni tavsiya qilaman! Ilovani yuklab oling va o'z bilimingizni oshiring! 📱
+
+📥 Ilovani yuklab olish:
+🤖 Android: https://play.google.com/store/apps/details?id=com.yourapp.course
+🍎 iOS: https://apps.apple.com/app/your-course-app/id123456789
+
+#onlinekurs #ta'lim #bilim
+''';
+
+      // Download and share course thumbnail image
+      final thumbnailUrl =
+          courseData!['thumbnail'].toString().startsWith('http')
+          ? courseData!['thumbnail'].toString()
+          : '${AppConstants.baseUrl}${courseData!['thumbnail']}';
+
+      // Download image to temporary directory
+      final response = await http.get(Uri.parse(thumbnailUrl));
+      if (response.statusCode == 200) {
+        final tempDir = await getTemporaryDirectory();
+        final file = File(
+          '${tempDir.path}/course_share_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        );
+        await file.writeAsBytes(response.bodyBytes);
+
+        // Share with both image and text
+        await Share.shareXFiles([XFile(file.path)], text: shareText);
+      } else {
+        // If image download fails, share only text
+        await Share.share(shareText);
+      }
+    } catch (e) {
+      print('Share error: $e');
+      // Fallback to text-only share on error
+      if (mounted) {
+        ToastUtils.showError(context, 'Ulashishda xatolik');
+      }
+    }
   }
 
   @override
@@ -466,8 +605,16 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                 onPressed: _toggleSave,
               ),
               IconButton(
-                icon: const Icon(Icons.share, color: Colors.white),
-                onPressed: () {},
+                icon: SvgPicture.asset(
+                  'assets/icons/share.svg',
+                  width: 24.w,
+                  height: 24.h,
+                  colorFilter: const ColorFilter.mode(
+                    Colors.white,
+                    BlendMode.srcIn,
+                  ),
+                ),
+                onPressed: _shareCourse,
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
@@ -599,7 +746,11 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                                 ? ClipOval(
                                     child: CachedNetworkImage(
                                       imageUrl:
-                                          courseData!['teacher']['avatar'],
+                                          courseData!['teacher']['avatar']
+                                              .toString()
+                                              .startsWith('http')
+                                          ? courseData!['teacher']['avatar']
+                                          : '${AppConstants.baseUrl}${courseData!['teacher']['avatar']}',
                                       width: 40.r,
                                       height: 40.r,
                                       fit: BoxFit.cover,
@@ -731,8 +882,8 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                       ),
                     ),
 
-                  // Test section (only if enrolled)
-                  if (_isEnrolled) ...[
+                  // Test section (only if enrolled or free)
+                  if (_isEnrolled || (courseData!['isFree'] == true)) ...[
                     SizedBox(height: 16.h),
                     _buildTestSection(),
                   ],
@@ -1151,8 +1302,8 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
-        // Not enrolled message
-        if (!_isEnrolled)
+        // Not enrolled and not free message
+        if (!_isEnrolled && courseData!['isFree'] != true)
           SliverToBoxAdapter(
             child: Container(
               margin: EdgeInsets.all(16.w),
@@ -1184,8 +1335,8 @@ class _CourseDetailPageState extends State<CourseDetailPage>
               ),
             ),
           ),
-        // Comment input section (only if enrolled)
-        if (_isEnrolled)
+        // Comment input section (if enrolled or free)
+        if (_isEnrolled || courseData!['isFree'] == true)
           SliverToBoxAdapter(
             child: Container(
               padding: EdgeInsets.all(16.w),
@@ -1349,95 +1500,103 @@ class _CourseDetailPageState extends State<CourseDetailPage>
 
         // Comments list
         _comments.isEmpty
-            ? SliverFillRemaining(
-                child: Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(32.w),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: EdgeInsets.all(40.w),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                AppColors.primary.withOpacity(0.15),
-                                AppColors.primary.withOpacity(0.08),
-                              ],
+            ? SliverToBoxAdapter(
+                child: Container(
+                  height: 400.h,
+                  child: Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32.w),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(40.w),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppColors.primary.withOpacity(0.15),
+                                  AppColors.primary.withOpacity(0.08),
+                                ],
+                              ),
+                              shape: BoxShape.circle,
                             ),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.chat_bubble_outline,
-                            size: 64.sp,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                        SizedBox(height: 24.h),
-                        Text(
-                          'Hozircha izohlar yo\'q',
-                          style: GoogleFonts.inter(
-                            fontSize: 20.sp,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        SizedBox(height: 12.h),
-                        if (_isEnrolled) ...[
-                          Text(
-                            'Birinchi bo\'lib izoh qoldiring!',
-                            style: GoogleFonts.inter(
-                              fontSize: 15.sp,
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w600,
+                            child: SvgPicture.asset(
+                              'assets/icons/chat-round.svg',
+                              width: 64.w,
+                              height: 64.h,
+                              colorFilter: ColorFilter.mode(
+                                AppColors.primary,
+                                BlendMode.srcIn,
+                              ),
                             ),
                           ),
                           SizedBox(height: 24.h),
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 24.w,
-                              vertical: 12.h,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12.r),
-                              border: Border.all(
-                                color: AppColors.primary.withOpacity(0.3),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.lightbulb_outline,
-                                  color: AppColors.primary,
-                                  size: 20.sp,
-                                ),
-                                SizedBox(width: 8.w),
-                                Text(
-                                  'Fikrlaringizni baham ko\'ring',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 13.sp,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                              ],
+                          Text(
+                            'Hozircha izohlar yo\'q',
+                            style: GoogleFonts.inter(
+                              fontSize: 20.sp,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
                             ),
                           ),
-                        ] else ...[
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 32.w),
-                            child: Text(
-                              'Kursni sotib oling va izohlar qoldiring',
+                          SizedBox(height: 12.h),
+                          if (_isEnrolled ||
+                              (courseData!['isFree'] == true)) ...[
+                            Text(
+                              'Birinchi bo\'lib izoh qoldiring!',
                               style: GoogleFonts.inter(
-                                fontSize: 14.sp,
-                                color: AppColors.textSecondary,
+                                fontSize: 15.sp,
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w600,
                               ),
-                              textAlign: TextAlign.center,
                             ),
-                          ),
+                            SizedBox(height: 24.h),
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 24.w,
+                                vertical: 12.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12.r),
+                                border: Border.all(
+                                  color: AppColors.primary.withOpacity(0.3),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.lightbulb_outline,
+                                    color: AppColors.primary,
+                                    size: 20.sp,
+                                  ),
+                                  SizedBox(width: 8.w),
+                                  Text(
+                                    'Fikrlaringizni baham ko\'ring',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 13.sp,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ] else ...[
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 32.w),
+                              child: Text(
+                                'Kursni sotib oling va izohlar qoldiring',
+                                style: GoogleFonts.inter(
+                                  fontSize: 14.sp,
+                                  color: AppColors.textSecondary,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ),

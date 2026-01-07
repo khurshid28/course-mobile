@@ -1,7 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_constants.dart';
+import '../../main.dart';
+import '../../features/auth/presentation/pages/register_page.dart';
 
 class DioClient {
   late final Dio _dio;
@@ -50,6 +53,15 @@ class DioClient {
           return handler.next(response);
         },
         onError: (error, handler) {
+          // Handle 401 Unauthorized - redirect to login except for verify-code endpoint
+          if (error.response?.statusCode == 401) {
+            final requestPath = error.requestOptions.path;
+            // Don't redirect if it's OTP verification (user might have entered wrong code)
+            if (!requestPath.contains('/auth/verify-code')) {
+              _handleUnauthorized();
+            }
+          }
+
           // Translate backend errors to Uzbek
           if (error.response?.data != null && error.response?.data is Map) {
             final errorData = error.response!.data as Map<String, dynamic>;
@@ -84,6 +96,21 @@ class DioClient {
 
   Dio get dio => _dio;
 
+  // Handle 401 Unauthorized - redirect to login
+  void _handleUnauthorized() {
+    // Clear token
+    removeToken();
+
+    // Navigate to RegisterPage
+    final context = navigatorKey.currentContext;
+    if (context != null) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const RegisterPage()),
+        (route) => false,
+      );
+    }
+  }
+
   // Translate backend errors to Uzbek
   String _translateErrorToUzbek(String errorMessage) {
     final translations = <String, String>{
@@ -97,6 +124,10 @@ class DioClient {
       'Already enrolled in this course': 'Siz allaqachon kursga yozilgansiz',
       'You must be enrolled to leave feedback':
           'Fikr qoldirish uchun kursga yozilishingiz kerak',
+      'Siz bu kursni sotib olmagansiz':
+          'Siz bu kursni sotib olmagansiz. Faqat sotib olingan kurslarni baholash mumkin.',
+      'Faqat sotib olingan kurslarni baholash mumkin':
+          'Siz bu kursni sotib olmagansiz. Faqat sotib olingan kurslarni baholash mumkin.',
 
       // Test errors
       'Test topilmadi': 'Test topilmadi',

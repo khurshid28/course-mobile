@@ -5,6 +5,9 @@ import 'core/theme/app_theme.dart';
 import 'features/splash/presentation/pages/splash_page.dart';
 import 'injection_container.dart';
 
+// Global navigation key for 401 redirect
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -28,6 +31,7 @@ class MyApp extends StatelessWidget {
       splitScreenMode: true,
       builder: (context, child) {
         return MaterialApp(
+          navigatorKey: navigatorKey,
           title: 'Kurslar',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,

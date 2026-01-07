@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/toast_utils.dart';
 import '../../../../core/utils/format_utils.dart';
 import '../../../../core/widgets/teacher_rating_widget.dart';
@@ -198,7 +199,12 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
                                             .isNotEmpty
                                     ? ClipOval(
                                         child: CachedNetworkImage(
-                                          imageUrl: _teacher!['avatar'],
+                                          imageUrl:
+                                              _teacher!['avatar']
+                                                  .toString()
+                                                  .startsWith('http')
+                                              ? _teacher!['avatar']
+                                              : '${AppConstants.baseUrl}${_teacher!['avatar']}',
                                           width: 110.r,
                                           height: 110.r,
                                           fit: BoxFit.cover,
@@ -251,8 +257,12 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
                               children: [
                                 _buildStatBadge(
                                   Icons.star,
-                                  '${_teacher!['rating'] ?? 0}',
-                                  '${_teacher!['totalRatings'] ?? 0} baho',
+                                  (_teacher!['totalRatings'] ?? 0) == 0
+                                      ? 'Yangi'
+                                      : '${_teacher!['rating'] ?? 0}',
+                                  (_teacher!['totalRatings'] ?? 0) == 0
+                                      ? 'Hali baholanmagan'
+                                      : '${_teacher!['totalRatings']} baho',
                                 ),
                                 SizedBox(width: 12.w),
                                 _buildStatBadge(
@@ -727,7 +737,12 @@ class _TeacherDetailPageState extends State<TeacherDetailPage> {
                     width: double.infinity,
                     child: course['thumbnail'] != null
                         ? CachedNetworkImage(
-                            imageUrl: course['thumbnail'],
+                            imageUrl:
+                                course['thumbnail'].toString().startsWith(
+                                  'http',
+                                )
+                                ? course['thumbnail']
+                                : '${AppConstants.baseUrl}${course['thumbnail']}',
                             fit: BoxFit.cover,
                             placeholder: (context, url) =>
                                 Container(color: AppColors.border),

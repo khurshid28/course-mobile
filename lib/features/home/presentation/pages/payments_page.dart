@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/format_utils.dart';
 import '../../../../core/utils/toast_utils.dart';
 import '../../../../core/widgets/shimmer_widgets.dart';
@@ -194,25 +195,152 @@ class _PaymentsPageState extends State<PaymentsPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  course?['title'] ??
-                                      (payment['type'] == 'BALANCE_TOPUP'
-                                          ? 'Balance to\'ldirildi'
-                                          : 'Noma\'lum kurs'),
-                                  style: TextStyle(
-                                    fontSize: 16.sp,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textPrimary,
+                          // Course/Teacher Image and Title Row
+                          if (course != null && course['thumbnail'] != null)
+                            Row(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8.r),
+                                  child: CachedNetworkImage(
+                                    imageUrl:
+                                        course['thumbnail']
+                                            .toString()
+                                            .startsWith('http')
+                                        ? course['thumbnail'].toString()
+                                        : '${AppConstants.baseUrl}${course['thumbnail']}',
+                                    width: 60.w,
+                                    height: 60.h,
+                                    fit: BoxFit.cover,
+                                    placeholder: (context, url) => Container(
+                                      width: 60.w,
+                                      height: 60.h,
+                                      color: AppColors.secondary,
+                                      child: Icon(
+                                        Icons.image,
+                                        color: AppColors.textHint,
+                                        size: 24.sp,
+                                      ),
+                                    ),
+                                    errorWidget: (context, url, error) {
+                                      print('Image error: $url - $error');
+                                      return Container(
+                                        width: 60.w,
+                                        height: 60.h,
+                                        color: AppColors.secondary,
+                                        child: Icon(
+                                          Icons.school,
+                                          color: AppColors.primary,
+                                          size: 24.sp,
+                                        ),
+                                      );
+                                    },
                                   ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              ),
-                              SizedBox(width: 8.w),
+                                SizedBox(width: 12.w),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        course['title'] ?? 'Noma\'lum kurs',
+                                        style: TextStyle(
+                                          fontSize: 16.sp,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      if (course['teacher'] != null) ...[
+                                        SizedBox(height: 4.h),
+                                        Row(
+                                          children: [
+                                            if (course['teacher']['avatar'] !=
+                                                null)
+                                              ClipOval(
+                                                child: CachedNetworkImage(
+                                                  imageUrl:
+                                                      course['teacher']['avatar']
+                                                          .toString()
+                                                          .startsWith('http')
+                                                      ? course['teacher']['avatar']
+                                                            .toString()
+                                                      : '${AppConstants.baseUrl}${course['teacher']['avatar']}',
+                                                  width: 16.w,
+                                                  height: 16.h,
+                                                  fit: BoxFit.cover,
+                                                  placeholder: (context, url) =>
+                                                      Container(
+                                                        width: 16.w,
+                                                        height: 16.h,
+                                                        color:
+                                                            AppColors.secondary,
+                                                      ),
+                                                  errorWidget:
+                                                      (context, url, error) =>
+                                                          Icon(
+                                                            Icons.person,
+                                                            size: 16.sp,
+                                                            color: AppColors
+                                                                .textHint,
+                                                          ),
+                                                ),
+                                              ),
+                                            SizedBox(width: 4.w),
+                                            Expanded(
+                                              child: Text(
+                                                course['teacher']['name'] ?? '',
+                                                style: TextStyle(
+                                                  fontSize: 12.sp,
+                                                  color:
+                                                      AppColors.textSecondary,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          if (payment['type'] == 'BALANCE_TOPUP')
+                            Row(
+                              children: [
+                                Container(
+                                  width: 60.w,
+                                  height: 60.h,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8.r),
+                                  ),
+                                  child: Icon(
+                                    Icons.account_balance_wallet,
+                                    color: AppColors.primary,
+                                    size: 32.sp,
+                                  ),
+                                ),
+                                SizedBox(width: 12.w),
+                                Expanded(
+                                  child: Text(
+                                    'Balans to\'ldirildi',
+                                    style: TextStyle(
+                                      fontSize: 16.sp,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          SizedBox(height: 12.h),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
                               Container(
                                 padding: EdgeInsets.symmetric(
                                   horizontal: 10.w,

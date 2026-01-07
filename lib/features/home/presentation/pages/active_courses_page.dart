@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/shimmer_widgets.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../data/datasources/course_remote_datasource.dart';
 import '../../../../injection_container.dart';
 import '../../../../core/utils/toast_utils.dart';
@@ -37,7 +38,9 @@ class _ActiveCoursesPageState extends State<ActiveCoursesPage> {
       if (!mounted) return;
 
       setState(() {
-        _enrolledCourses = courses.map((e) => e as Map<String, dynamic>).toList();
+        _enrolledCourses = courses
+            .map((e) => e as Map<String, dynamic>)
+            .toList();
         _isLoading = false;
       });
     } catch (e) {
@@ -50,7 +53,7 @@ class _ActiveCoursesPageState extends State<ActiveCoursesPage> {
 
   String _getTimeRemaining(String? expiresAt) {
     if (expiresAt == null) return 'Cheksiz';
-    
+
     try {
       final expiry = DateTime.parse(expiresAt);
       final now = DateTime.now();
@@ -141,47 +144,47 @@ class _ActiveCoursesPageState extends State<ActiveCoursesPage> {
               itemBuilder: (context, index) => const CourseCardShimmer(),
             )
           : _enrolledCourses.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SvgPicture.asset(
-                        'assets/icons/courses.svg',
-                        width: 80.w,
-                        height: 80.h,
-                        colorFilter: ColorFilter.mode(
-                          AppColors.textHint,
-                          BlendMode.srcIn,
-                        ),
-                      ),
-                      SizedBox(height: 16.h),
-                      Text(
-                        'Faol kurslar yo\'q',
-                        style: TextStyle(
-                          fontSize: 18.sp,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      SizedBox(height: 8.h),
-                      Text(
-                        'Hali birorta kurs sotib olmadingiz',
-                        style: TextStyle(
-                          fontSize: 14.sp,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SvgPicture.asset(
+                    'assets/icons/courses.svg',
+                    width: 80.w,
+                    height: 80.h,
+                    colorFilter: ColorFilter.mode(
+                      AppColors.textHint,
+                      BlendMode.srcIn,
+                    ),
                   ),
-                )
-              : ListView.builder(
-                  padding: EdgeInsets.all(16.w),
-                  itemCount: _enrolledCourses.length,
-                  itemBuilder: (context, index) {
-                    final course = _enrolledCourses[index];
-                    return _buildCourseCard(course);
-                  },
-                ),
+                  SizedBox(height: 16.h),
+                  Text(
+                    'Faol kurslar yo\'q',
+                    style: TextStyle(
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  SizedBox(height: 8.h),
+                  Text(
+                    'Hali birorta kurs sotib olmadingiz',
+                    style: TextStyle(
+                      fontSize: 14.sp,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              padding: EdgeInsets.all(16.w),
+              itemCount: _enrolledCourses.length,
+              itemBuilder: (context, index) {
+                final course = _enrolledCourses[index];
+                return _buildCourseCard(course);
+              },
+            ),
     );
   }
 
@@ -204,7 +207,7 @@ class _ActiveCoursesPageState extends State<ActiveCoursesPage> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(16.r),
           border: Border.all(
-            color: isExpired 
+            color: isExpired
                 ? AppColors.error.withOpacity(0.3)
                 : AppColors.border,
           ),
@@ -225,23 +228,26 @@ class _ActiveCoursesPageState extends State<ActiveCoursesPage> {
               child: Stack(
                 children: [
                   CachedNetworkImage(
-                    imageUrl: course['thumbnail'] ?? '',
+                    imageUrl: course['thumbnail'].toString().startsWith('http')
+                        ? course['thumbnail'].toString()
+                        : '${AppConstants.baseUrl}${course['thumbnail']}',
                     height: 180.h,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      height: 180.h,
-                      color: AppColors.shimmerBase,
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      height: 180.h,
-                      color: AppColors.secondary,
-                      child: Icon(
-                        Icons.play_circle_outline,
-                        size: 48.sp,
-                        color: AppColors.textHint,
-                      ),
-                    ),
+                    placeholder: (context, url) =>
+                        Container(height: 180.h, color: AppColors.shimmerBase),
+                    errorWidget: (context, url, error) {
+                      print('Image error: $error for URL: $url');
+                      return Container(
+                        height: 180.h,
+                        color: AppColors.secondary,
+                        child: Icon(
+                          Icons.play_circle_outline,
+                          size: 48.sp,
+                          color: AppColors.textHint,
+                        ),
+                      );
+                    },
                   ),
                   // Status badge
                   Positioned(
@@ -308,7 +314,11 @@ class _ActiveCoursesPageState extends State<ActiveCoursesPage> {
                   SizedBox(height: 8.h),
                   Row(
                     children: [
-                      Icon(Icons.person, size: 16.sp, color: AppColors.textSecondary),
+                      Icon(
+                        Icons.person,
+                        size: 16.sp,
+                        color: AppColors.textSecondary,
+                      ),
                       SizedBox(width: 4.w),
                       Expanded(
                         child: Text(
@@ -330,7 +340,9 @@ class _ActiveCoursesPageState extends State<ActiveCoursesPage> {
                           Icon(
                             isExpired ? Icons.timer_off : Icons.timer,
                             size: 16.sp,
-                            color: isExpired ? AppColors.error : AppColors.primary,
+                            color: isExpired
+                                ? AppColors.error
+                                : AppColors.primary,
                           ),
                           SizedBox(width: 4.w),
                           Text(
@@ -338,7 +350,9 @@ class _ActiveCoursesPageState extends State<ActiveCoursesPage> {
                             style: TextStyle(
                               fontSize: 14.sp,
                               fontWeight: FontWeight.w600,
-                              color: isExpired ? AppColors.error : AppColors.primary,
+                              color: isExpired
+                                  ? AppColors.error
+                                  : AppColors.primary,
                             ),
                           ),
                         ],

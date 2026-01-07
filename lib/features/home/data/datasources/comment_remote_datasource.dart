@@ -53,7 +53,7 @@ class CommentRemoteDataSource {
       print('FormData fields: ${formData.fields}');
       print('FormData files: ${formData.files.length} files');
 
-      final response = await dioClient.post('/comments', data: formData);
+      final response = await dioClient.post('/comments/legacy', data: formData);
       print('Comment created successfully: ${response.data}');
       return response.data as Map<String, dynamic>;
     } catch (e) {
