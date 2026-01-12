@@ -16,6 +16,7 @@ UserModel _$UserModelFromJson(Map<String, dynamic> json) => UserModel(
       region: json['region'] as String?,
       avatar: json['avatar'] as String?,
       isVerified: json['isVerified'] as bool?,
+      dateOfBirth: json['dateOfBirth'] as String?,
     );
 
 Map<String, dynamic> _$UserModelToJson(UserModel instance) => <String, dynamic>{
@@ -28,6 +29,7 @@ Map<String, dynamic> _$UserModelToJson(UserModel instance) => <String, dynamic>{
       'region': instance.region,
       'avatar': instance.avatar,
       'isVerified': instance.isVerified,
+      'dateOfBirth': instance.dateOfBirth,
     };
 
 AuthResponse _$AuthResponseFromJson(Map<String, dynamic> json) => AuthResponse(
@@ -72,7 +74,8 @@ CompleteProfileRequest _$CompleteProfileRequestFromJson(
       surname: json['surname'] as String,
       email: json['email'] as String?,
       gender: json['gender'] as String,
-      region: json['region'] as String,
+      region: json['region'] as String?,
+      dateOfBirth: json['dateOfBirth'] as String?,
     );
 
 Map<String, dynamic> _$CompleteProfileRequestToJson(
@@ -83,4 +86,5 @@ Map<String, dynamic> _$CompleteProfileRequestToJson(
       'email': instance.email,
       'gender': instance.gender,
       'region': instance.region,
+      'dateOfBirth': instance.dateOfBirth,
     };

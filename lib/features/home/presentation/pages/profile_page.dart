@@ -43,6 +43,9 @@ class _ProfilePageState extends State<ProfilePage> {
   int _totalHours = 0;
   double _balance = 0;
   int _activeCourses = 0;
+  int _completedCourses = 0;
+  int _completedLessons = 0;
+  double _performance = 0.0;
 
   @override
   void initState() {
@@ -107,6 +110,24 @@ class _ProfilePageState extends State<ProfilePage> {
         }
       }
 
+      // Calculate completed courses and lessons
+      int completedLessons = 0;
+      int completedCourses = 0;
+      for (var course in enrolledCourses) {
+        if (course['completed'] == true) {
+          completedCourses++;
+        }
+        if (course['completedSections'] != null) {
+          completedLessons += (course['completedSections'] as num).toInt();
+        }
+      }
+
+      // Calculate performance percentage
+      double performance = 0.0;
+      if (enrolledCourses.isNotEmpty) {
+        performance = (completedCourses / enrolledCourses.length) * 100;
+      }
+
       if (!mounted) return;
 
       setState(() {
@@ -117,6 +138,9 @@ class _ProfilePageState extends State<ProfilePage> {
         _totalHours = (totalMinutes / 60).ceil();
         _balance = balance;
         _activeCourses = activeCourses;
+        _completedCourses = completedCourses;
+        _completedLessons = completedLessons;
+        _performance = performance;
         _isLoading = false;
       });
     } catch (e) {
@@ -413,116 +437,117 @@ class _ProfilePageState extends State<ProfilePage> {
         : 'U';
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.white,
       body: _isLoading
           ? const ProfileShimmer()
           : RefreshIndicator(
               onRefresh: _loadUserData,
               child: CustomScrollView(
                 slivers: [
-                  // Header with gradient background
+                  // Header with gradient background and avatar
                   SliverAppBar(
-                    expandedHeight: 360.h,
+                    expandedHeight: 280.h,
                     pinned: false,
                     automaticallyImplyLeading: false,
                     backgroundColor: Colors.transparent,
                     elevation: 0,
                     flexibleSpace: FlexibleSpaceBar(
                       background: Container(
-                        decoration: BoxDecoration(
+                        decoration: const BoxDecoration(
                           gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
                             colors: [
-                              AppColors.primary,
-                              AppColors.primary.withOpacity(0.8),
+                              Color(0xFF4C7CFF),
+                              Color(0xFF3366FF),
                             ],
                           ),
                         ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SizedBox(height: 60.h),
-                            // Settings Button
-                            Align(
-                              alignment: Alignment.topRight,
-                              child: Padding(
-                                padding: EdgeInsets.only(right: 16.w, top: 8.h),
-                                child: IconButton(
-                                  icon: SvgPicture.asset(
-                                    'assets/icons/settings.svg',
-                                    width: 24.w,
-                                    height: 24.h,
-                                    colorFilter: const ColorFilter.mode(
-                                      Colors.white,
-                                      BlendMode.srcIn,
+                        child: SafeArea(
+                          child: Column(
+                            children: [
+                              SizedBox(height: 20.h),
+                              // Notification icon
+                              Align(
+                                alignment: Alignment.topRight,
+                                child: Padding(
+                                  padding: EdgeInsets.only(right: 24.w),
+                                  child: Container(
+                                    width: 40.w,
+                                    height: 40.h,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.2),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: IconButton(
+                                      icon: Icon(
+                                        Icons.notifications_outlined,
+                                        color: Colors.white,
+                                        size: 20.sp,
+                                      ),
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => const NotificationsPage(),
+                                          ),
+                                        );
+                                      },
                                     ),
                                   ),
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => const SettingsPage(),
-                                      ),
-                                    );
-                                  },
                                 ),
                               ),
-                            ),
-                            SizedBox(height: 8.h),
-                            // Avatar with Active Courses Badge
-                            GestureDetector(
-                              onTap: () {
-                                if (_isUploadingImage) return;
-
-                                // Show options: view or upload
-                                if (avatarUrl != null && avatarUrl.isNotEmpty) {
-                                  showModalBottomSheet(
-                                    context: context,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.vertical(
-                                        top: Radius.circular(20.r),
+                              SizedBox(height: 20.h),
+                              // Avatar with image upload functionality
+                              GestureDetector(
+                                onTap: () {
+                                  if (avatarUrl != null && avatarUrl.isNotEmpty) {
+                                    showModalBottomSheet(
+                                      context: context,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.vertical(
+                                          top: Radius.circular(20.r),
+                                        ),
                                       ),
-                                    ),
-                                    builder: (context) => Container(
-                                      padding: EdgeInsets.all(20.w),
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          ListTile(
-                                            leading: Icon(
-                                              Icons.visibility,
-                                              color: AppColors.primary,
+                                      builder: (context) => Container(
+                                        padding: EdgeInsets.all(20.w),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            ListTile(
+                                              leading: Icon(
+                                                Icons.visibility,
+                                                color: AppColors.primary,
+                                              ),
+                                              title: Text('Rasmni ko\'rish'),
+                                              onTap: () {
+                                                Navigator.pop(context);
+                                                _showImageViewer(
+                                                  ImageUtils.getFullImageUrl(
+                                                    avatarUrl,
+                                                  ),
+                                                );
+                                              },
                                             ),
-                                            title: Text('Rasmni ko\'rish'),
-                                            onTap: () {
-                                              Navigator.pop(context);
-                                              _showImageViewer(
-                                                ImageUtils.getFullImageUrl(
-                                                  avatarUrl,
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                          ListTile(
-                                            leading: Icon(
-                                              Icons.photo_camera,
-                                              color: AppColors.primary,
+                                            ListTile(
+                                              leading: Icon(
+                                                Icons.photo_camera,
+                                                color: AppColors.primary,
+                                              ),
+                                              title: Text('Rasmni o\'zgartirish'),
+                                              onTap: () {
+                                                Navigator.pop(context);
+                                                _pickAndUploadImage();
+                                              },
                                             ),
-                                            title: Text('Rasmni o\'zgartirish'),
-                                            onTap: () {
-                                              Navigator.pop(context);
-                                              _pickAndUploadImage();
-                                            },
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                  );
-                                } else {
-                                  _pickAndUploadImage();
-                                }
-                              },
+                                    );
+                                  } else {
+                                    _pickAndUploadImage();
+                                  }
+                                },
                               child: Stack(
                                 children: [
                                   Container(
@@ -674,7 +699,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                       ),
                     ),
-                  ),
+                  ),),
 
                   // Stats Cards
                   SliverToBoxAdapter(
@@ -763,14 +788,14 @@ class _ProfilePageState extends State<ProfilePage> {
                               ),
                             ),
                             SizedBox(height: 16.h),
-                            // Stats Row
+                            // Stats Row - 3 items as per Figma
                             Row(
                               children: [
                                 Expanded(
                                   child: _buildStatCard(
-                                    '$_enrolledCount',
-                                    'Kurslar',
-                                    'assets/icons/courses.svg',
+                                    '${_performance.toStringAsFixed(0)}%',
+                                    'Samaradorlik',
+                                    'assets/icons/star-fall.svg',
                                   ),
                                 ),
                                 Container(
@@ -780,8 +805,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                 ),
                                 Expanded(
                                   child: _buildStatCard(
-                                    '$_certificatesCount',
-                                    'Sertifikatlar',
+                                    '$_completedCourses',
+                                    'Yakunlangan\nkurslar',
                                     'assets/icons/certificate.svg',
                                   ),
                                 ),
@@ -792,9 +817,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                 ),
                                 Expanded(
                                   child: _buildStatCard(
-                                    '$_totalHours',
-                                    'Soat',
-                                    'assets/icons/time.svg',
+                                    '$_completedLessons',
+                                    'Yakunlangan\ndarslar',
+                                    'assets/icons/courses.svg',
                                   ),
                                 ),
                               ],
@@ -805,15 +830,16 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
 
-                  // Menu Items
+                  // Menu Items - As per Figma
                   SliverToBoxAdapter(
                     child: Column(
                       children: [
                         SizedBox(height: 12.h),
 
+                        // Ma'lumotlarni tahrirlash
                         _buildMenuItem(
                           'assets/icons/user.svg',
-                          'Shaxsiy ma\'lumotlar',
+                          'Ma\'lumotlarni tahrirlash',
                           () async {
                             if (_user == null) return;
 
@@ -824,15 +850,16 @@ class _ProfilePageState extends State<ProfilePage> {
                               ),
                             );
 
-                            // Reload profile if edited
                             if (result == true) {
                               _loadUserData();
                             }
                           },
                         ),
+                        
+                        // Mening kurslarim
                         _buildMenuItem(
                           'assets/icons/courses.svg',
-                          'Faol kurslar',
+                          'Mening kurslarim',
                           () {
                             Navigator.push(
                               context,
@@ -841,143 +868,58 @@ class _ProfilePageState extends State<ProfilePage> {
                               ),
                             ).then((_) => _loadUserData());
                           },
-                          trailing: '$_activeCourses',
                         ),
+                        
+                        // Tranzaksiyalar tarixi
                         _buildMenuItem(
-                          'assets/icons/book_saved.svg',
-                          'Saqlangan kurslar',
+                          'assets/icons/wallet.svg',
+                          'Tranzaksiyalar tarixi',
                           () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const SavedCoursesPage(),
-                              ),
-                            ).then((_) => _loadUserData());
-                          },
-                          trailing: '$_coursesCount',
-                        ),
-                        _buildMenuItem(
-                          'assets/icons/star-fall.svg',
-                          'Mening natijalarim',
-                          () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const ResultsPage(),
-                              ),
-                            );
-                          },
-                        ),
-                        _buildMenuItem(
-                          'assets/icons/notification-bell.svg',
-                          'Bildirishnomalar',
-                          () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const NotificationsPage(),
-                              ),
-                            );
-                          },
-                        ),
-                        _buildMenuItem(
-                          null, // Using icon instead of SVG
-                          'Foydalanilgan promo kodlar',
-                          () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const UsedPromoCodesPage(),
-                              ),
-                            );
-                          },
-                          icon: Icons.local_offer_outlined,
-                        ),
-
-                        Divider(height: 32.h, thickness: 1),
-
-                        _buildMenuItem(
-                          'assets/icons/logout.svg',
-                          'Chiqish',
-                          _logout,
-                          color: AppColors.error,
-                        ),
-
-                        SizedBox(height: 24.h),
-
-                        // Teacher Banner
-                        GestureDetector(
-                          onTap: () {
                             ToastUtils.showInfo(context, "Jarayonda...");
                           },
-                          child: Container(
-                            margin: EdgeInsets.symmetric(horizontal: 16.w),
-                            padding: EdgeInsets.all(20.w),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  AppColors.primary,
-                                  AppColors.primary.withOpacity(0.8),
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(20.r),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.primary.withOpacity(0.3),
-                                  blurRadius: 20,
-                                  offset: const Offset(0, 10),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: EdgeInsets.all(14.w),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(14.r),
-                                  ),
-                                  child: Icon(
-                                    Icons.school_rounded,
-                                    color: Colors.white,
-                                    size: 32.sp,
-                                  ),
-                                ),
-                                SizedBox(width: 16.w),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'O\'qituvchi bo\'lish',
-                                        style: TextStyle(
-                                          fontSize: 20.sp,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                      SizedBox(height: 4.h),
-                                      Text(
-                                        'Bilimingizni baham ko\'ring va daromad qiling',
-                                        style: TextStyle(
-                                          fontSize: 14.sp,
-                                          color: Colors.white.withOpacity(0.9),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Icon(
-                                  Icons.arrow_forward_ios_rounded,
-                                  color: Colors.white,
-                                  size: 20.sp,
-                                ),
-                              ],
-                            ),
-                          ),
+                        ),
+                        
+                        // Til
+                        _buildMenuItem(
+                          null,
+                          'Til',
+                          () {
+                            ToastUtils.showInfo(context, "Jarayonda...");
+                          },
+                          icon: Icons.language_rounded,
+                          trailing: 'O\'zbekcha',
+                        ),
+                        
+                        // Biz bilan aloqa
+                        _buildMenuItem(
+                          null,
+                          'Biz bilan aloqa',
+                          () {
+                            ToastUtils.showInfo(context, "Jarayonda...");
+                          },
+                          icon: Icons.phone_rounded,
+                        ),
+                        
+                        // O'qituvchi bo'lish
+                        _buildMenuItem(
+                          null,
+                          'O\'qituvchi bo\'lish',
+                          () {
+                            ToastUtils.showInfo(context, "Jarayonda...");
+                          },
+                          icon: Icons.school_rounded,
+                        ),
+
+                        SizedBox(height: 8.h),
+                        Divider(height: 1.h, thickness: 1, indent: 16.w, endIndent: 16.w),
+                        SizedBox(height: 8.h),
+
+                        // Akkauntdan chiqish
+                        _buildMenuItem(
+                          'assets/icons/logout.svg',
+                          'Akkauntdan chiqish',
+                          _logout,
+                          color: AppColors.error,
                         ),
 
                         SizedBox(height: 32.h),
@@ -1066,11 +1008,11 @@ class _ProfilePageState extends State<ProfilePage> {
             borderRadius: BorderRadius.circular(12.r),
           ),
           child: icon != null
-              ? Icon(icon, size: 20.sp, color: color ?? AppColors.primary)
+              ? Icon(icon, size: 22.sp, color: color ?? AppColors.primary)
               : SvgPicture.asset(
                   iconPath!,
-                  width: 24.w,
-                  height: 24.h,
+                  width: 22.w,
+                  height: 22.h,
                   colorFilter: ColorFilter.mode(
                     color ?? AppColors.primary,
                     BlendMode.srcIn,
@@ -1080,23 +1022,34 @@ class _ProfilePageState extends State<ProfilePage> {
         title: Text(
           title,
           style: TextStyle(
-            fontSize: 16.sp,
+            fontSize: 15.sp,
             fontWeight: FontWeight.w600,
             color: color ?? AppColors.textPrimary,
           ),
         ),
         trailing: trailing != null
-            ? Text(
-                trailing,
-                style: TextStyle(
-                  fontSize: 14.sp,
-                  color: AppColors.textSecondary,
-                ),
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    trailing,
+                    style: TextStyle(
+                      fontSize: 14.sp,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  SizedBox(width: 4.w),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.textSecondary,
+                    size: 20.sp,
+                  ),
+                ],
               )
             : Icon(
                 Icons.chevron_right_rounded,
                 color: AppColors.textSecondary,
-                size: 24.sp,
+                size: 20.sp,
               ),
         onTap: onTap,
       ),
