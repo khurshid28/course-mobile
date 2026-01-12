@@ -103,195 +103,147 @@ class MainPageState extends State<MainPage> {
       body: IndexedStack(index: _currentIndex, children: _pages),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
+          color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 12,
+              offset: const Offset(0, -4),
             ),
           ],
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20.r),
+            topRight: Radius.circular(20.r),
+          ),
         ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (index) => setState(() => _currentIndex = index),
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
-          selectedItemColor: AppColors.primary,
-          unselectedItemColor: AppColors.textSecondary,
-          selectedFontSize: 12.sp,
-          unselectedFontSize: 12.sp,
-          items: [
-            BottomNavigationBarItem(
-              icon: TweenAnimationBuilder<double>(
-                tween: Tween<double>(
-                  begin: 0.0,
-                  end: _currentIndex == 0 ? 1.0 : 0.0,
+        child: ClipRRect(
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20.r),
+            topRight: Radius.circular(20.r),
+          ),
+          child: BottomNavigationBar(
+            currentIndex: _currentIndex,
+            onTap: (index) => setState(() => _currentIndex = index),
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: Colors.white,
+            selectedItemColor: const Color(0xFF3366FF),
+            unselectedItemColor: const Color(0xFF9E9E9E),
+            selectedFontSize: 12.sp,
+            unselectedFontSize: 11.sp,
+            selectedLabelStyle: TextStyle(
+              fontWeight: FontWeight.w600,
+              height: 1.8,
+            ),
+            unselectedLabelStyle: TextStyle(
+              fontWeight: FontWeight.w500,
+              height: 1.8,
+            ),
+            elevation: 0,
+            items: [
+              BottomNavigationBarItem(
+                icon: Padding(
+                  padding: EdgeInsets.only(bottom: 4.h),
+                  child: SvgPicture.asset(
+                    'assets/icons/home.svg',
+                    width: 24.w,
+                    height: 24.h,
+                    colorFilter: ColorFilter.mode(
+                      _currentIndex == 0
+                          ? const Color(0xFF3366FF)
+                          : const Color(0xFF9E9E9E),
+                      BlendMode.srcIn,
+                    ),
+                  ),
                 ),
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-                builder: (context, value, child) {
-                  return Transform.scale(
-                    scale: 0.85 + (value * 0.15),
-                    child: Opacity(
-                      opacity: 0.5 + (value * 0.5),
-                      child: SvgPicture.asset(
-                        'assets/icons/logo.svg',
+                label: 'Asosiy',
+              ),
+              BottomNavigationBarItem(
+                icon: Padding(
+                  padding: EdgeInsets.only(bottom: 4.h),
+                  child: SvgPicture.asset(
+                    'assets/icons/courses.svg',
+                    width: 24.w,
+                    height: 24.h,
+                    colorFilter: ColorFilter.mode(
+                      _currentIndex == 1
+                          ? const Color(0xFF3366FF)
+                          : const Color(0xFF9E9E9E),
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                ),
+                label: 'Kurslar',
+              ),
+              BottomNavigationBarItem(
+                icon: Padding(
+                  padding: EdgeInsets.only(bottom: 4.h),
+                  child: SvgPicture.asset(
+                    'assets/icons/history.svg',
+                    width: 24.w,
+                    height: 24.h,
+                    colorFilter: ColorFilter.mode(
+                      _currentIndex == 2
+                          ? const Color(0xFF3366FF)
+                          : const Color(0xFF9E9E9E),
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                ),
+                label: 'Reyting',
+              ),
+              BottomNavigationBarItem(
+                icon: Padding(
+                  padding: EdgeInsets.only(bottom: 4.h),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      SvgPicture.asset(
+                        'assets/icons/user.svg',
                         width: 24.w,
                         height: 24.h,
                         colorFilter: ColorFilter.mode(
-                          _currentIndex == 0
-                              ? AppColors.primary
-                              : AppColors.textSecondary,
+                          _currentIndex == 3
+                              ? const Color(0xFF3366FF)
+                              : const Color(0xFF9E9E9E),
                           BlendMode.srcIn,
                         ),
                       ),
-                    ),
-                  );
-                },
-              ),
-              label: 'Bosh sahifa',
-            ),
-            BottomNavigationBarItem(
-              icon: TweenAnimationBuilder<double>(
-                tween: Tween<double>(
-                  begin: 0.0,
-                  end: _currentIndex == 1 ? 1.0 : 0.0,
-                ),
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-                builder: (context, value, child) {
-                  return Transform.scale(
-                    scale: 0.85 + (value * 0.15),
-                    child: Opacity(
-                      opacity: 0.5 + (value * 0.5),
-                      child: SvgPicture.asset(
-                        'assets/icons/courses.svg',
-                        width: 24.w,
-                        height: 24.h,
-                        colorFilter: ColorFilter.mode(
-                          _currentIndex == 1
-                              ? AppColors.primary
-                              : AppColors.textSecondary,
-                          BlendMode.srcIn,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-              label: 'Kurslar',
-            ),
-            BottomNavigationBarItem(
-              icon: TweenAnimationBuilder<double>(
-                tween: Tween<double>(
-                  begin: 0.0,
-                  end: _currentIndex == 2 ? 1.0 : 0.0,
-                ),
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-                builder: (context, value, child) {
-                  return Transform.scale(
-                    scale: 0.85 + (value * 0.15),
-                    child: Opacity(
-                      opacity: 0.5 + (value * 0.5),
-                      child: SvgPicture.asset(
-                        'assets/icons/history.svg',
-                        width: 24.w,
-                        height: 24.h,
-                        colorFilter: ColorFilter.mode(
-                          _currentIndex == 2
-                              ? AppColors.primary
-                              : AppColors.textSecondary,
-                          BlendMode.srcIn,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-              label: 'To\'lovlar',
-            ),
-            BottomNavigationBarItem(
-              icon: TweenAnimationBuilder<double>(
-                tween: Tween<double>(
-                  begin: 0.0,
-                  end: _currentIndex == 3 ? 1.0 : 0.0,
-                ),
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-                builder: (context, value, child) {
-                  return Transform.scale(
-                    scale: 0.85 + (value * 0.15),
-                    child: Opacity(
-                      opacity: 0.5 + (value * 0.5),
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          SvgPicture.asset(
-                            'assets/icons/user.svg',
-                            width: 24.w,
-                            height: 24.h,
-                            colorFilter: ColorFilter.mode(
-                              _currentIndex == 3
-                                  ? AppColors.primary
-                                  : AppColors.textSecondary,
-                              BlendMode.srcIn,
+                      if (_activeCoursesCount > 0)
+                        Positioned(
+                          right: -6,
+                          top: -4,
+                          child: Container(
+                            padding: EdgeInsets.all(4.w),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
                             ),
-                          ),
-                          if (_activeCoursesCount > 0)
-                            Positioned(
-                              right: -8,
-                              top: -4,
-                              child: TweenAnimationBuilder<double>(
-                                tween: Tween<double>(begin: 0.0, end: 1.0),
-                                duration: const Duration(milliseconds: 500),
-                                curve: Curves.elasticOut,
-                                builder: (context, scaleValue, child) {
-                                  return Transform.scale(
-                                    scale: scaleValue,
-                                    child: Container(
-                                      padding: EdgeInsets.all(4.w),
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [
-                                            AppColors.success,
-                                            AppColors.success.withOpacity(0.8),
-                                          ],
-                                        ),
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: Colors.white,
-                                          width: 1.5,
-                                        ),
-                                      ),
-                                      constraints: BoxConstraints(
-                                        minWidth: 18.w,
-                                        minHeight: 18.w,
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          '$_activeCoursesCount',
-                                          style: TextStyle(
-                                            fontSize: 10.sp,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
+                            constraints: BoxConstraints(
+                              minWidth: 16.w,
+                              minHeight: 16.h,
+                            ),
+                            child: Center(
+                              child: Text(
+                                _activeCoursesCount > 9
+                                    ? '9+'
+                                    : _activeCoursesCount.toString(),
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9.sp,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
                               ),
                             ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                label: 'Profil',
               ),
-              label: 'Profil',
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

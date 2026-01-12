@@ -49,7 +49,8 @@ class AuthRemoteDataSource {
     required String surname,
     String? email,
     required String gender,
-    required String region,
+    String? dateOfBirth,
+    String? region,
     String? avatar,
   }) async {
     try {
@@ -58,9 +59,10 @@ class AuthRemoteDataSource {
         data: {
           'firstName': firstName,
           'surname': surname,
-          'email': email,
+          if (email != null) 'email': email,
           'gender': gender,
-          'region': region,
+          if (dateOfBirth != null) 'dateOfBirth': dateOfBirth,
+          if (region != null) 'region': region,
           if (avatar != null) 'avatar': avatar,
         },
       );

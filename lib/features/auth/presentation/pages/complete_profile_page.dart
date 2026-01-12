@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/components/buttons/primary_button.dart';
 import '../../data/datasources/auth_remote_datasource.dart';
 import '../../../../injection_container.dart';
 import '../../../home/presentation/pages/main_page.dart';
@@ -20,6 +22,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   final _firstNameController = TextEditingController();
   final _surnameController = TextEditingController();
   final _emailController = TextEditingController();
+  DateTime? _selectedDate;
   String? _selectedGender;
   String? _selectedRegion;
   bool _isLoading = false;
@@ -49,18 +52,41 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     super.dispose();
   }
 
+  Future<void> _selectDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? DateTime(2000),
+      firstDate: DateTime(1950),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: const Color(0xFF3366FF),
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
+  }
+
   void _completeProfile() async {
     if (_firstNameController.text.isEmpty ||
         _surnameController.text.isEmpty ||
-        _selectedGender == null ||
-        _selectedRegion == null) {
+        _selectedGender == null) {
       Fluttertoast.showToast(
-        msg: "Barcha maydonlarni to'ldiring",
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.BOTTOM,
+        msg: "Ism, Familiya va Jins majburiy maydonlar",
         backgroundColor: AppColors.error,
         textColor: Colors.white,
-        fontSize: 16.sp,
       );
       return;
     }
@@ -74,7 +100,10 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         surname: _surnameController.text,
         email: _emailController.text.isEmpty ? null : _emailController.text,
         gender: _selectedGender!,
-        region: _regions[_selectedRegion!]!,
+        dateOfBirth: _selectedDate != null 
+            ? DateFormat('yyyy-MM-dd').format(_selectedDate!)
+            : null,
+        region: _selectedRegion != null ? _regions[_selectedRegion] : null,
       );
 
       if (!mounted) return;
@@ -91,11 +120,8 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
 
       Fluttertoast.showToast(
         msg: 'Xatolik: ${e.toString()}',
-        toastLength: Toast.LENGTH_LONG,
-        gravity: ToastGravity.BOTTOM,
         backgroundColor: AppColors.error,
         textColor: Colors.white,
-        fontSize: 16.sp,
       );
     }
   }
@@ -103,269 +129,340 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: const Text('Profilni to\'ldirish'),
-      ),
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: EdgeInsets.all(24.w),
+          padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 20.h),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Title
               Text(
-                'Ma\'lumotlaringizni kiriting',
+                'Shaxsiy ma\'lumotlar',
                 style: TextStyle(
                   fontSize: 24.sp,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+                  color: Colors.black,
                 ),
               ),
               SizedBox(height: 8.h),
               Text(
-                'Bu ma\'lumotlar sizning profilingizda ko\'rsatiladi',
+                'Barcha shaxsiy ma\'lumotlaringizni kiriting',
                 style: TextStyle(
                   fontSize: 14.sp,
-                  color: AppColors.textSecondary,
+                  color: const Color(0xFF666666),
                 ),
               ),
               SizedBox(height: 32.h),
-              TextField(
-                controller: _firstNameController,
-                cursorHeight: 18.h,
-                cursorColor: AppColors.primary,
-                decoration: InputDecoration(
-                  labelText: 'Ism',
-                  hintText: 'Ismingizni kiriting',
-                  prefixIcon: Padding(
-                    padding: EdgeInsets.all(12.w),
-                    child: SvgPicture.asset(
-                      'assets/icons/user.svg',
-                      width: 24.w,
-                      height: 24.h,
-                      colorFilter: const ColorFilter.mode(
-                        AppColors.textSecondary,
-                        BlendMode.srcIn,
-                      ),
+              
+              // Ism
+              Text(
+                'Ism',
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                ),
+              ),
+              SizedBox(height: 8.h),
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F5F5),
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
+                child: TextField(
+                  controller: _firstNameController,
+                  cursorColor: const Color(0xFF3366FF),
+                  decoration: InputDecoration(
+                    hintText: 'Ismingizni kiriting',
+                    hintStyle: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 14.sp,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16.w,
+                      vertical: 16.h,
                     ),
                   ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12.r),
+                  style: TextStyle(
+                    fontSize: 14.sp,
+                    color: Colors.black,
                   ),
                 ),
               ),
               SizedBox(height: 16.h),
-              TextField(
-                controller: _surnameController,
-                cursorHeight: 18.h,
-                cursorColor: AppColors.primary,
-                decoration: InputDecoration(
-                  labelText: 'Familiya',
-                  hintText: 'Familiyangizni kiriting',
-                  prefixIcon: Padding(
-                    padding: EdgeInsets.all(12.w),
-                    child: SvgPicture.asset(
-                      'assets/icons/user.svg',
-                      width: 24.w,
-                      height: 24.h,
-                      colorFilter: const ColorFilter.mode(
-                        AppColors.textSecondary,
-                        BlendMode.srcIn,
-                      ),
+              
+              // Familiya
+              Text(
+                'Familiya',
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                ),
+              ),
+              SizedBox(height: 8.h),
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F5F5),
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
+                child: TextField(
+                  controller: _surnameController,
+                  cursorColor: const Color(0xFF3366FF),
+                  decoration: InputDecoration(
+                    hintText: 'Familiyangizni kiriting',
+                    hintStyle: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 14.sp,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16.w,
+                      vertical: 16.h,
                     ),
                   ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12.r),
+                  style: TextStyle(
+                    fontSize: 14.sp,
+                    color: Colors.black,
                   ),
                 ),
               ),
               SizedBox(height: 16.h),
-              TextField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                cursorHeight: 18.h,
-                cursorColor: AppColors.primary,
-                decoration: InputDecoration(
-                  labelText: 'Email (ixtiyoriy)',
-                  hintText: 'emailingiz@example.com',
-                  prefixIcon: Padding(
-                    padding: EdgeInsets.all(12.w),
-                    child: SvgPicture.asset(
-                      'assets/icons/mail.svg',
-                      width: 24.w,
-                      height: 24.h,
-                      colorFilter: const ColorFilter.mode(
-                        AppColors.textSecondary,
-                        BlendMode.srcIn,
-                      ),
+              
+              // Email
+              Text(
+                'Email (ixtiyoriy)',
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                ),
+              ),
+              SizedBox(height: 8.h),
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F5F5),
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
+                child: TextField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  cursorColor: const Color(0xFF3366FF),
+                  decoration: InputDecoration(
+                    hintText: 'Email manzilingizni kiriting',
+                    hintStyle: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 14.sp,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16.w,
+                      vertical: 16.h,
                     ),
                   ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12.r),
+                  style: TextStyle(
+                    fontSize: 14.sp,
+                    color: Colors.black,
                   ),
                 ),
               ),
-              SizedBox(height: 24.h),
+              SizedBox(height: 16.h),
+              
+              // Tug'ilgan sana
+              Text(
+                'Tug\'ilgan sana',
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                ),
+              ),
+              SizedBox(height: 8.h),
+              InkWell(
+                onTap: _selectDate,
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 16.w,
+                    vertical: 16.h,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF5F5F5),
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _selectedDate != null
+                            ? DateFormat('dd.MM.yyyy').format(_selectedDate!)
+                            : '25.08.2025',
+                        style: TextStyle(
+                          fontSize: 14.sp,
+                          color: _selectedDate != null 
+                              ? Colors.black 
+                              : Colors.grey[400],
+                        ),
+                      ),
+                      SvgPicture.asset(
+                        'assets/icons/calendar.svg',
+                        width: 18.w,
+                        height: 18.h,
+                        colorFilter: ColorFilter.mode(
+                          Colors.grey[600]!,
+                          BlendMode.srcIn,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(height: 16.h),
+              
+              // Jins
               Text(
                 'Jins',
                 style: TextStyle(
-                  fontSize: 16.sp,
+                  fontSize: 14.sp,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                  color: Colors.black,
                 ),
               ),
-              SizedBox(height: 12.h),
+              SizedBox(height: 8.h),
               Row(
                 children: [
                   Expanded(
-                    child: GestureDetector(
+                    child: InkWell(
                       onTap: () => setState(() => _selectedGender = 'MALE'),
                       child: Container(
-                        padding: EdgeInsets.symmetric(vertical: 16.h),
+                        height: 52.h,
                         decoration: BoxDecoration(
                           color: _selectedGender == 'MALE'
-                              ? AppColors.primary.withOpacity(0.1)
-                              : Colors.white,
-                          border: Border.all(
-                            color: _selectedGender == 'MALE'
-                                ? AppColors.primary
-                                : AppColors.border,
-                            width: 2,
-                          ),
-                          borderRadius: BorderRadius.circular(12.r),
+                              ? const Color(0xFF3366FF)
+                              : const Color(0xFFE0E0E0),
+                          borderRadius: BorderRadius.circular(25.r),
+                          boxShadow: _selectedGender == 'MALE' ? [
+                            BoxShadow(
+                              color: const Color(0xFF3366FF).withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ] : [],
                         ),
-                        child: Column(
-                          children: [
-                             SvgPicture.asset(
-                              'assets/icons/man.svg',
-                              width: 40.w,
-                              height: 40.h,
-                              colorFilter: ColorFilter.mode(
-                                _selectedGender == 'MALE'
-                                    ? AppColors.primary
-                                    : AppColors.textSecondary,
-                                BlendMode.srcIn,
-                              ),
+                        child: Center(
+                          child: Text(
+                            'Erkak',
+                            style: TextStyle(
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w600,
+                              color: _selectedGender == 'MALE'
+                                  ? Colors.white
+                                  : Colors.black,
                             ),
-                            SizedBox(height: 8.h),
-                            Text(
-                              'Erkak',
-                              style: TextStyle(
-                                fontSize: 16.sp,
-                                fontWeight: _selectedGender == 'MALE'
-                                    ? FontWeight.w600
-                                    : FontWeight.w500,
-                                color: _selectedGender == 'MALE'
-                                    ? AppColors.primary
-                                    : AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                  SizedBox(width: 16.w),
+                  SizedBox(width: 12.w),
                   Expanded(
-                    child: GestureDetector(
+                    child: InkWell(
                       onTap: () => setState(() => _selectedGender = 'FEMALE'),
                       child: Container(
-                        padding: EdgeInsets.symmetric(vertical: 16.h),
+                        height: 52.h,
                         decoration: BoxDecoration(
                           color: _selectedGender == 'FEMALE'
-                              ? AppColors.primary.withOpacity(0.1)
-                              : Colors.white,
-                          border: Border.all(
-                            color: _selectedGender == 'FEMALE'
-                                ? AppColors.primary
-                                : AppColors.border,
-                            width: 2,
-                          ),
-                          borderRadius: BorderRadius.circular(12.r),
+                              ? const Color(0xFF3366FF)
+                              : const Color(0xFFE0E0E0),
+                          borderRadius: BorderRadius.circular(25.r),
+                          boxShadow: _selectedGender == 'FEMALE' ? [
+                            BoxShadow(
+                              color: const Color(0xFF3366FF).withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ] : [],
                         ),
-                        child: Column(
-                          children: [
-                            SvgPicture.asset(
-                              'assets/icons/woman.svg',
-                              width: 40.w,
-                              height: 40.h,
-                              colorFilter: ColorFilter.mode(
-                                _selectedGender == 'FEMALE'
-                                    ? AppColors.primary
-                                    : AppColors.textSecondary,
-                                BlendMode.srcIn,
-                              ),
+                        child: Center(
+                          child: Text(
+                            'Ayol',
+                            style: TextStyle(
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w600,
+                              color: _selectedGender == 'FEMALE'
+                                  ? Colors.white
+                                  : Colors.black,
                             ),
-                            SizedBox(height: 8.h),
-                            Text(
-                              'Ayol',
-                              style: TextStyle(
-                                fontSize: 16.sp,
-                                fontWeight: _selectedGender == 'FEMALE'
-                                    ? FontWeight.w600
-                                    : FontWeight.w500,
-                                color: _selectedGender == 'FEMALE'
-                                    ? AppColors.primary
-                                    : AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ],
               ),
-              SizedBox(height: 24.h),
-              DropdownButtonFormField<String>(
-                value: _selectedRegion,
-                decoration: InputDecoration(
-                  labelText: 'Viloyat',
-                  prefixIcon: Padding(
-                    padding: EdgeInsets.all(12.w),
-                    child: SvgPicture.asset(
-                      'assets/icons/location-check.svg',
-                      width: 24.w,
-                      height: 24.h,
-                      colorFilter: const ColorFilter.mode(
-                        AppColors.textSecondary,
-                        BlendMode.srcIn,
-                      ),
+              SizedBox(height: 16.h),
+              
+              // Hudud
+              Text(
+                'Hudud (ixtiyoriy)',
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                ),
+              ),
+              SizedBox(height: 8.h),
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F5F5),
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
+                child: DropdownButtonFormField<String>(
+                  value: _selectedRegion,
+                  icon: Padding(
+                    padding: EdgeInsets.only(right: 12.w),
+                    child: Icon(
+                      Icons.keyboard_arrow_down,
+                      color: Colors.grey[600],
+                      size: 24.sp,
                     ),
                   ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12.r),
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    hintText: 'Hududingizni tanlang',
+                    hintStyle: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 14.sp,
+                    ),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16.w,
+                      vertical: 16.h,
+                    ),
                   ),
-                  filled: true,
-                  fillColor: Colors.white,
+                  dropdownColor: Colors.white,
+                  style: TextStyle(
+                    fontSize: 14.sp,
+                    color: Colors.black,
+                  ),
+                  items: _regions.keys
+                      .map(
+                        (region) => DropdownMenuItem(
+                          value: region,
+                          child: Text(region),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) => setState(() => _selectedRegion = value),
                 ),
-                items: _regions.keys
-                    .map(
-                      (region) =>
-                          DropdownMenuItem(value: region, child: Text(region)),
-                    )
-                    .toList(),
-                onChanged: (value) => setState(() => _selectedRegion = value),
               ),
               SizedBox(height: 32.h),
-              SizedBox(
-                width: double.infinity,
-                height: 52.h,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _completeProfile,
-                  child: _isLoading
-                      ? SizedBox(
-                          height: 20.h,
-                          width: 20.w,
-                          child: const CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
-                          ),
-                        )
-                      : const Text('Yakunlash'),
-                ),
+              
+              // Yakunlash button
+              PrimaryButton(
+                text: 'Yakunlash',
+                onPressed: _completeProfile,
+                isLoading: _isLoading,
               ),
             ],
           ),

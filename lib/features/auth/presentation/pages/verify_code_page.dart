@@ -3,6 +3,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:pinput/pinput.dart';
 import 'dart:async';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/components/buttons/primary_button.dart';
+import '../../../../core/components/buttons/secondary_button.dart';
 import '../../data/datasources/auth_remote_datasource.dart';
 import '../../../../injection_container.dart';
 import 'complete_profile_page.dart';
@@ -125,25 +127,24 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
   @override
   Widget build(BuildContext context) {
     final defaultPinTheme = PinTheme(
-      width: 56.w,
-      height: 60.h,
+      width: 48.w,
+      height: 56.h,
       textStyle: TextStyle(
-        fontSize: 24.sp,
+        fontSize: 20.sp,
         fontWeight: FontWeight.w600,
-        color: AppColors.textPrimary,
+        color: Colors.black,
       ),
       decoration: BoxDecoration(
-        color: AppColors.secondary,
+        color: const Color(0xFFF5F5F5),
         borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: AppColors.border),
       ),
     );
 
     final focusedPinTheme = defaultPinTheme.copyWith(
       decoration: BoxDecoration(
-        color: AppColors.secondary,
+        color: const Color(0xFFF5F5F5),
         borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: AppColors.primary, width: 2),
+        border: Border.all(color: const Color(0xFF3366FF), width: 2),
       ),
     );
 
@@ -156,149 +157,154 @@ class _VerifyCodePageState extends State<VerifyCodePage> {
     );
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        leading: Padding(
-          padding: EdgeInsets.all(8.w),
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8.r),
-              border: Border.all(
-                color: AppColors.primary.withOpacity(0.3),
-                width: 1,
-              ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: Container(
+          width: 36.w,
+          height: 36.h,
+          margin: EdgeInsets.all(8.w),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE0E0E0),
+            borderRadius: BorderRadius.circular(8.r),
+          ),
+          child: IconButton(
+            icon: Icon(
+              Icons.arrow_back_ios_new,
+              color: const Color(0xFF666666),
+              size: 16.sp,
             ),
-            child: IconButton(
-              icon: Icon(Icons.arrow_back_ios_new, color: AppColors.primary),
-              iconSize: 18.sp,
-              padding: EdgeInsets.zero,
-              onPressed: () => Navigator.pop(context),
-            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: () => Navigator.pop(context),
           ),
         ),
+        title: Text(
+          'Tasdiqlash',
+          style: TextStyle(
+            fontSize: 18.sp,
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+          ),
+        ),
+        centerTitle: true,
       ),
       body: SafeArea(
         child: Padding(
-          padding: EdgeInsets.all(24.w),
+          padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 20.h),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Phone number
               Text(
-                'Tasdiqlash kodi',
+                widget.phone,
                 style: TextStyle(
-                  fontSize: 32.sp,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
                 ),
               ),
               SizedBox(height: 12.h),
+              
+              // Description
               Text(
-                '${widget.phone} raqamiga yuborilgan 6 xonali kodni kiriting',
+                'Ushbu telefon raqamiga 6 sonli kod yuborildi, ushbu kodni kiritng va telefon raqamingizni tasdiqlang!',
                 style: TextStyle(
-                  fontSize: 16.sp,
-                  color: AppColors.textSecondary,
+                  fontSize: 14.sp,
+                  color: const Color(0xFF666666),
+                  height: 1.5,
                 ),
               ),
-              SizedBox(height: 48.h),
+              SizedBox(height: 32.h),
+              
+              // Label
               Center(
-                child: Pinput(
-                  controller: _pinController,
-                  length: 6,
-                  defaultPinTheme: defaultPinTheme,
-                  focusedPinTheme: focusedPinTheme,
-                  errorPinTheme: errorPinTheme,
-                  forceErrorState: _errorMessage != null,
-                  onCompleted: _verifyCode,
-                  onChanged: (value) {
-                    // Clear error when user starts typing
-                    if (_errorMessage != null && value.isNotEmpty) {
-                      setState(() => _errorMessage = null);
-                    }
-                  },
-                  enabled: !_isLoading,
+                child: Text(
+                  'Kodni kiriting',
+                  style: TextStyle(
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
                 ),
               ),
+              SizedBox(height: 12.h),
+              
+              // Pin input
+              Pinput(
+                controller: _pinController,
+                length: 6,
+                defaultPinTheme: defaultPinTheme,
+                focusedPinTheme: focusedPinTheme,
+                errorPinTheme: errorPinTheme,
+                forceErrorState: _errorMessage != null,
+                onCompleted: _verifyCode,
+                onChanged: (value) {
+                  if (_errorMessage != null && value.isNotEmpty) {
+                    setState(() => _errorMessage = null);
+                  }
+                },
+                enabled: !_isLoading,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              ),
+              
               if (_errorMessage != null) ...[
-                SizedBox(height: 16.h),
-                Center(
-                  child: Text(
-                    _errorMessage!,
-                    style: TextStyle(
-                      fontSize: 14.sp,
-                      color: AppColors.error,
-                      fontWeight: FontWeight.w500,
-                    ),
+                SizedBox(height: 12.h),
+                Text(
+                  _errorMessage!,
+                  style: TextStyle(
+                    fontSize: 13.sp,
+                    color: AppColors.error,
                   ),
                 ),
               ],
-              SizedBox(height: 32.h),
-              Center(
-                child: _isLoading
-                    ? const CircularProgressIndicator()
-                    : Column(
-                        children: [
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 16.w,
-                              vertical: 12.h,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _secondsRemaining > 0
-                                  ? AppColors.primary.withOpacity(0.1)
-                                  : AppColors.error.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12.r),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.timer_outlined,
-                                  color: _secondsRemaining > 0
-                                      ? AppColors.primary
-                                      : AppColors.error,
-                                  size: 20.sp,
-                                ),
-                                SizedBox(width: 8.w),
-                                Text(
-                                  _timerText,
-                                  style: TextStyle(
-                                    fontSize: 18.sp,
-                                    fontWeight: FontWeight.w600,
-                                    color: _secondsRemaining > 0
-                                        ? AppColors.primary
-                                        : AppColors.error,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(height: 16.h),
-                          if (_secondsRemaining == 0)
-                            TextButton(
-                              onPressed: _isLoading ? null : _resendCode,
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 24.w,
-                                  vertical: 12.h,
-                                ),
-                                backgroundColor: AppColors.primary.withOpacity(0.1),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8.r),
-                                ),
-                              ),
-                              child: Text(
-                                'Qayta yuborish',
-                                style: TextStyle(
-                                  fontSize: 16.sp,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                            ),
-                        ],
+              SizedBox(height: 24.h),
+              
+              // Resend button
+              if (_secondsRemaining == 0)
+                Center(
+                  child: TextButton(
+                    onPressed: _isLoading ? null : _resendCode,
+                    child: Text(
+                      'Qayta yuborish',
+                      style: TextStyle(
+                        fontSize: 15.sp,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF3366FF),
                       ),
-              ),
+                    ),
+                  ),
+                )
+              else
+                Center(
+                  child: Text(
+                    'Qayta yuborish ($_timerText)',
+                    style: TextStyle(
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF999999),
+                    ),
+                  ),
+                ),
+              
               const Spacer(),
+              
+              // Continue button
+              PrimaryButton(
+                text: 'Davom ettish',
+                onPressed: _pinController.text.length == 6 ? () => _verifyCode(_pinController.text) : null,
+                isLoading: _isLoading,
+              ),
+              SizedBox(height: 12.h),
+              
+              // Back to login
+              SecondaryButton(
+                text: 'Boshqa raqam kiritish',
+                onPressed: () => Navigator.pop(context),
+                icon: Icons.arrow_back,
+              ),
+              SizedBox(height: 8.h),
             ],
           ),
         ),

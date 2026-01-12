@@ -13,6 +13,7 @@ class UserModel {
   final String? region;
   final String? avatar;
   final bool? isVerified;
+  final String? dateOfBirth;
 
   UserModel({
     required this.id,
@@ -24,6 +25,7 @@ class UserModel {
     this.region,
     this.avatar,
     this.isVerified,
+    this.dateOfBirth,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) =>
@@ -77,14 +79,16 @@ class CompleteProfileRequest {
   final String surname;
   final String? email;
   final String gender;
-  final String region;
+  final String? region;
+  final String? dateOfBirth;
 
   CompleteProfileRequest({
     required this.firstName,
     required this.surname,
     this.email,
     required this.gender,
-    required this.region,
+    this.region,
+    this.dateOfBirth,
   });
 
   factory CompleteProfileRequest.fromJson(Map<String, dynamic> json) =>
