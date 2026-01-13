@@ -15,6 +15,7 @@ import '../../../auth/data/datasources/auth_remote_datasource.dart';
 import '../../data/datasources/course_remote_datasource.dart';
 import '../../data/datasources/test_remote_datasource.dart';
 import '../../data/datasources/payment_remote_datasource.dart';
+import '../../data/datasources/notification_remote_datasource.dart';
 import '../../../auth/presentation/pages/register_page.dart';
 import '../../../settings/presentation/pages/settings_page.dart';
 import 'edit_profile_page.dart';
@@ -46,12 +47,14 @@ class _ProfilePageState extends State<ProfilePage> {
   int _completedCourses = 0;
   int _completedLessons = 0;
   double _performance = 0.0;
+  int _unreadNotificationCount = 0;
 
   @override
   void initState() {
     super.initState();
     _clearImageCache();
     _loadUserData();
+    _loadUnreadNotificationCount();
   }
 
   Future<void> _clearImageCache() async {
@@ -62,6 +65,22 @@ class _ProfilePageState extends State<ProfilePage> {
       PaintingBinding.instance.imageCache.clearLiveImages();
     } catch (e) {
       // Ignore errors
+    }
+  }
+
+  Future<void> _loadUnreadNotificationCount() async {
+    try {
+      final dataSource = getIt<NotificationRemoteDataSource>();
+      final result = await dataSource.getUnreadCount();
+      debugPrint('🔔 Profile - Unread count loaded: ${result['count']}');
+      if (mounted) {
+        setState(() {
+          _unreadNotificationCount = result['count'] ?? 0;
+        });
+        debugPrint('🔔 Profile - State updated: $_unreadNotificationCount');
+      }
+    } catch (e) {
+      debugPrint('❌ Profile - Error loading unread count: $e');
     }
   }
 
@@ -152,6 +171,73 @@ class _ProfilePageState extends State<ProfilePage> {
 
       ToastUtils.showError(context, e);
     }
+  }
+
+  void _showLanguageDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.r),
+          ),
+          title: Text(
+            'Tilni tanlang',
+            style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w600),
+          ),
+          contentPadding: EdgeInsets.symmetric(vertical: 16.h),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildLanguageOption(
+                'O\'zbekcha',
+                'uz',
+                '🇺🇿',
+                true, // Active til
+              ),
+              Divider(height: 1.h),
+              _buildLanguageOption('Русский', 'ru', '🇷🇺', false),
+              Divider(height: 1.h),
+              _buildLanguageOption('English', 'en', '🇬🇧', false),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildLanguageOption(
+    String name,
+    String code,
+    String flag,
+    bool isSelected,
+  ) {
+    return InkWell(
+      onTap: () {
+        Navigator.pop(context);
+        ToastUtils.showInfo(context, "Jarayonda...");
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
+        child: Row(
+          children: [
+            Text(flag, style: TextStyle(fontSize: 28.sp)),
+            SizedBox(width: 12.w),
+            Expanded(
+              child: Text(
+                name,
+                style: TextStyle(
+                  fontSize: 16.sp,
+                  color: const Color(0xFF1F2937),
+                ),
+              ),
+            ),
+            if (isSelected)
+              Icon(Icons.check_circle, color: AppColors.primary, size: 24.sp),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showImageViewer(String imageUrl) {
@@ -430,7 +516,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final userName = _user != null
         ? '${_user!.firstName ?? ''} ${_user!.surname ?? ''}'.trim()
         : 'Foydalanuvchi';
-    final userPhone = _user?.phone ?? '';
+    final userPhone = FormatUtils.formatPhoneNumber(_user?.phone);
     final userInitials =
         _user != null && _user!.firstName != null && _user!.surname != null
         ? '${_user!.firstName![0]}${_user!.surname![0]}'.toUpperCase()
@@ -457,51 +543,98 @@ class _ProfilePageState extends State<ProfilePage> {
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
-                            colors: [
-                              Color(0xFF4C7CFF),
-                              Color(0xFF3366FF),
-                            ],
+                            colors: [Color(0xFF4C7CFF), Color(0xFF3366FF)],
                           ),
                         ),
                         child: SafeArea(
                           child: Column(
                             children: [
-                              SizedBox(height: 20.h),
+                              SizedBox(height: 16.h),
                               // Notification icon
                               Align(
                                 alignment: Alignment.topRight,
                                 child: Padding(
-                                  padding: EdgeInsets.only(right: 24.w),
-                                  child: Container(
-                                    width: 40.w,
-                                    height: 40.h,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.2),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: IconButton(
-                                      icon: Icon(
-                                        Icons.notifications_outlined,
-                                        color: Colors.white,
-                                        size: 20.sp,
-                                      ),
-                                      onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) => const NotificationsPage(),
+                                  padding: EdgeInsets.only(right: 16.w),
+                                  child: Stack(
+                                    children: [
+                                      GestureDetector(
+                                        onTap: () async {
+                                          await Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  const NotificationsPage(),
+                                            ),
+                                          );
+                                          // Reload unread count after returning
+                                          _loadUnreadNotificationCount();
+                                        },
+                                        child: Container(
+                                          width: 44.w,
+                                          height: 44.h,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(
+                                              0.15,
+                                            ),
+                                            shape: BoxShape.circle,
                                           ),
-                                        );
-                                      },
-                                    ),
+                                          child: Center(
+                                            child: SvgPicture.asset(
+                                              'assets/icons/notification.svg',
+                                              width: 22.w,
+                                              height: 22.h,
+                                              colorFilter:
+                                                  const ColorFilter.mode(
+                                                    Colors.white,
+                                                    BlendMode.srcIn,
+                                                  ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      if (_unreadNotificationCount > 0)
+                                        Positioned(
+                                          right: 0,
+                                          top: 0,
+                                          child: Container(
+                                            padding: EdgeInsets.all(4.w),
+                                            constraints: BoxConstraints(
+                                              minWidth: 18.w,
+                                              minHeight: 18.w,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.error,
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: Colors.white,
+                                                width: 2,
+                                              ),
+                                            ),
+                                            child: Center(
+                                              child: Text(
+                                                _unreadNotificationCount > 99
+                                                    ? '99+'
+                                                    : _unreadNotificationCount
+                                                          .toString(),
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 10.sp,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 ),
                               ),
-                              SizedBox(height: 20.h),
+                              SizedBox(height: 24.h),
                               // Avatar with image upload functionality
                               GestureDetector(
                                 onTap: () {
-                                  if (avatarUrl != null && avatarUrl.isNotEmpty) {
+                                  if (avatarUrl != null &&
+                                      avatarUrl.isNotEmpty) {
                                     showModalBottomSheet(
                                       context: context,
                                       shape: RoundedRectangleBorder(
@@ -534,7 +667,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                                 Icons.photo_camera,
                                                 color: AppColors.primary,
                                               ),
-                                              title: Text('Rasmni o\'zgartirish'),
+                                              title: Text(
+                                                'Rasmni o\'zgartirish',
+                                              ),
                                               onTap: () {
                                                 Navigator.pop(context);
                                                 _pickAndUploadImage();
@@ -548,384 +683,407 @@ class _ProfilePageState extends State<ProfilePage> {
                                     _pickAndUploadImage();
                                   }
                                 },
-                              child: Stack(
-                                children: [
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: Colors.white,
-                                        width: 4,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.2),
-                                          blurRadius: 20,
-                                          offset: const Offset(0, 10),
-                                        ),
-                                      ],
-                                    ),
-                                    child: CircleAvatar(
-                                      key: ValueKey(avatarUrl ?? 'no-avatar'),
-                                      radius: 50.r,
-                                      backgroundColor: Colors.white,
-                                      child:
-                                          avatarUrl != null &&
-                                              avatarUrl.isNotEmpty
-                                          ? ClipOval(
-                                              child: Builder(
-                                                builder: (context) {
-                                                  final fullUrl =
-                                                      ImageUtils.getFullImageUrl(
-                                                        avatarUrl,
-                                                      );
-                                                  print(
-                                                    '🖼️ Avatar URL: $avatarUrl',
-                                                  );
-                                                  print(
-                                                    '🌐 Full URL: $fullUrl',
-                                                  );
-                                                  return CachedNetworkImage(
-                                                    imageUrl: fullUrl,
-                                                    width: 100.r,
-                                                    height: 100.r,
-                                                    fit: BoxFit.cover,
-                                                    placeholder:
-                                                        (
-                                                          context,
-                                                          url,
-                                                        ) => Center(
-                                                          child:
-                                                              CircularProgressIndicator(
-                                                                color: AppColors
-                                                                    .primary,
-                                                                strokeWidth: 2,
-                                                              ),
-                                                        ),
-                                                    errorWidget:
-                                                        (context, url, error) {
-                                                          print(
-                                                            '❌ Avatar load error: $error',
-                                                          );
-                                                          return Text(
-                                                            userInitials,
-                                                            style: TextStyle(
-                                                              fontSize: 32.sp,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold,
-                                                              color: AppColors
-                                                                  .primary,
-                                                            ),
-                                                          );
-                                                        },
-                                                  );
-                                                },
-                                              ),
-                                            )
-                                          : Text(
-                                              userInitials,
-                                              style: TextStyle(
-                                                fontSize: 32.sp,
-                                                fontWeight: FontWeight.bold,
-                                                color: AppColors.primary,
-                                              ),
-                                            ),
-                                    ),
-                                  ),
-                                  Positioned(
-                                    right: 4,
-                                    bottom: 4,
-                                    child: Container(
-                                      padding: EdgeInsets.all(8.w),
+                                child: Stack(
+                                  children: [
+                                    Container(
                                       decoration: BoxDecoration(
-                                        color: Colors.white,
                                         shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Colors.white,
+                                          width: 4,
+                                        ),
                                         boxShadow: [
                                           BoxShadow(
                                             color: Colors.black.withOpacity(
-                                              0.1,
+                                              0.2,
                                             ),
-                                            blurRadius: 8,
+                                            blurRadius: 20,
+                                            offset: const Offset(0, 10),
                                           ),
                                         ],
                                       ),
-                                      child: _isUploadingImage
-                                          ? SizedBox(
-                                              width: 20.w,
-                                              height: 20.h,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                                valueColor:
-                                                    AlwaysStoppedAnimation<
-                                                      Color
-                                                    >(AppColors.primary),
+                                      child: CircleAvatar(
+                                        key: ValueKey(avatarUrl ?? 'no-avatar'),
+                                        radius: 50.r,
+                                        backgroundColor: Colors.white,
+                                        child:
+                                            avatarUrl != null &&
+                                                avatarUrl.isNotEmpty
+                                            ? ClipOval(
+                                                child: Builder(
+                                                  builder: (context) {
+                                                    final fullUrl =
+                                                        ImageUtils.getFullImageUrl(
+                                                          avatarUrl,
+                                                        );
+                                                    print(
+                                                      '🖼️ Avatar URL: $avatarUrl',
+                                                    );
+                                                    print(
+                                                      '🌐 Full URL: $fullUrl',
+                                                    );
+                                                    return CachedNetworkImage(
+                                                      imageUrl: fullUrl,
+                                                      width: 100.r,
+                                                      height: 100.r,
+                                                      fit: BoxFit.cover,
+                                                      placeholder:
+                                                          (
+                                                            context,
+                                                            url,
+                                                          ) => Center(
+                                                            child:
+                                                                CircularProgressIndicator(
+                                                                  color: AppColors
+                                                                      .primary,
+                                                                  strokeWidth:
+                                                                      2,
+                                                                ),
+                                                          ),
+                                                      errorWidget:
+                                                          (
+                                                            context,
+                                                            url,
+                                                            error,
+                                                          ) {
+                                                            print(
+                                                              '❌ Avatar load error: $error',
+                                                            );
+                                                            return Text(
+                                                              userInitials,
+                                                              style: TextStyle(
+                                                                fontSize: 32.sp,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                                color: AppColors
+                                                                    .primary,
+                                                              ),
+                                                            );
+                                                          },
+                                                    );
+                                                  },
+                                                ),
+                                              )
+                                            : Text(
+                                                userInitials,
+                                                style: TextStyle(
+                                                  fontSize: 32.sp,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: AppColors.primary,
+                                                ),
                                               ),
-                                            )
-                                          : SvgPicture.asset(
-                                              'assets/icons/camera.svg',
-                                              width: 20.w,
-                                              height: 20.h,
-                                              colorFilter:
-                                                  const ColorFilter.mode(
-                                                    AppColors.primary,
-                                                    BlendMode.srcIn,
-                                                  ),
-                                            ),
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            SizedBox(height: 12.h),
-                            Text(
-                              userName,
-                              style: TextStyle(
-                                fontSize: 22.sp,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                            SizedBox(height: 4.h),
-                            Text(
-                              userPhone,
-                              style: TextStyle(
-                                fontSize: 14.sp,
-                                color: Colors.white.withOpacity(0.9),
-                              ),
-                            ),
-                            SizedBox(height: 16.h),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),),
-
-                  // Stats Cards
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(16.w, 20.h, 16.w, 0),
-                      child: Container(
-                        padding: EdgeInsets.all(20.w),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20.r),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.08),
-                              blurRadius: 20,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            // Balance Card
-                            GestureDetector(
-                              onTap: () async {
-                                final result = await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => BalanceTopupPage(
-                                      currentBalance: _balance,
-                                    ),
-                                  ),
-                                );
-                                if (result == true) {
-                                  _loadUserData();
-                                }
-                              },
-                              child: Container(
-                                padding: EdgeInsets.all(16.w),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      AppColors.primary,
-                                      AppColors.primary.withOpacity(0.8),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(12.r),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Balans',
-                                          style: TextStyle(
-                                            fontSize: 14.sp,
-                                            color: Colors.white.withOpacity(
-                                              0.8,
-                                            ),
+                                    Positioned(
+                                      right: 0,
+                                      bottom: 0,
+                                      child: Container(
+                                        width: 32.w,
+                                        height: 32.h,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: const Color(0xFF3366FF),
+                                            width: 2,
                                           ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(
+                                                0.15,
+                                              ),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
                                         ),
-                                        SizedBox(height: 4.h),
-                                        Text(
-                                          '${FormatUtils.formatPrice(_balance)} so\'m',
-                                          style: TextStyle(
-                                            fontSize: 20.sp,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    SvgPicture.asset(
-                                      'assets/icons/wallet.svg',
-                                      width: 32.w,
-                                      height: 32.h,
-                                      colorFilter: const ColorFilter.mode(
-                                        Colors.white,
-                                        BlendMode.srcIn,
+                                        child: _isUploadingImage
+                                            ? Padding(
+                                                padding: EdgeInsets.all(6.w),
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  valueColor:
+                                                      AlwaysStoppedAnimation<
+                                                        Color
+                                                      >(AppColors.primary),
+                                                ),
+                                              )
+                                            : Icon(
+                                                Icons.add_rounded,
+                                                color: const Color(0xFF3366FF),
+                                                size: 20.sp,
+                                              ),
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                            ),
-                            SizedBox(height: 16.h),
-                            // Stats Row - 3 items as per Figma
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildStatCard(
-                                    '${_performance.toStringAsFixed(0)}%',
-                                    'Samaradorlik',
-                                    'assets/icons/star-fall.svg',
-                                  ),
+                              SizedBox(height: 12.h),
+                              Text(
+                                userName,
+                                style: TextStyle(
+                                  fontSize: 22.sp,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
                                 ),
-                                Container(
-                                  width: 1,
-                                  height: 60.h,
-                                  color: AppColors.border,
+                              ),
+                              SizedBox(height: 4.h),
+                              Text(
+                                userPhone,
+                                style: TextStyle(
+                                  fontSize: 14.sp,
+                                  color: Colors.white.withOpacity(0.9),
                                 ),
-                                Expanded(
-                                  child: _buildStatCard(
-                                    '$_completedCourses',
-                                    'Yakunlangan\nkurslar',
-                                    'assets/icons/certificate.svg',
-                                  ),
-                                ),
-                                Container(
-                                  width: 1,
-                                  height: 60.h,
-                                  color: AppColors.border,
-                                ),
-                                Expanded(
-                                  child: _buildStatCard(
-                                    '$_completedLessons',
-                                    'Yakunlangan\ndarslar',
-                                    'assets/icons/courses.svg',
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                              ),
+                              SizedBox(height: 16.h),
+                            ],
+                          ),
                         ),
+                      ),
+                    ),
+                  ),
+
+                  // Stats Cards
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 16.w,
+                        vertical: 20.h,
+                      ),
+                      child: Column(
+                        children: [
+                          // Balance Card
+                          GestureDetector(
+                            onTap: () async {
+                              final result = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => BalanceTopupPage(
+                                    currentBalance: _balance,
+                                  ),
+                                ),
+                              );
+                              if (result == true) {
+                                _loadUserData();
+                              }
+                            },
+                            child: Container(
+                              padding: EdgeInsets.all(16.w),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    AppColors.primary,
+                                    AppColors.primary.withOpacity(0.8),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(12.r),
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Balans',
+                                        style: TextStyle(
+                                          fontSize: 14.sp,
+                                          color: Colors.white.withOpacity(0.8),
+                                        ),
+                                      ),
+                                      SizedBox(height: 4.h),
+                                      Text(
+                                        '${FormatUtils.formatPrice(_balance)} so\'m',
+                                        style: TextStyle(
+                                          fontSize: 20.sp,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SvgPicture.asset(
+                                    'assets/icons/wallet.svg',
+                                    width: 32.w,
+                                    height: 32.h,
+                                    colorFilter: const ColorFilter.mode(
+                                      Colors.white,
+                                      BlendMode.srcIn,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: 16.h),
+                          // Stats Row - 3 items as per Figma
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildStatCard(
+                                  '${_performance.toStringAsFixed(0)}%',
+                                  'Samaradorlik',
+                                  'assets/icons/efficiency.svg',
+                                ),
+                              ),
+                              SizedBox(width: 8.w),
+                              Expanded(
+                                child: _buildStatCard(
+                                  '$_completedCourses',
+                                  'Yakunlangan\nkurslar',
+                                  'assets/icons/certificate.svg',
+                                ),
+                              ),
+                              SizedBox(width: 8.w),
+                              Expanded(
+                                child: _buildStatCard(
+                                  '$_completedLessons',
+                                  'Yakunlangan\ndarslar',
+                                  'assets/icons/courses.svg',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ),
 
                   // Menu Items - As per Figma
                   SliverToBoxAdapter(
-                    child: Column(
-                      children: [
-                        SizedBox(height: 12.h),
+                    child: Container(
+                      margin: EdgeInsets.symmetric(
+                        horizontal: 16.w,
+                        vertical: 20.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16.r),
+                      ),
+                      child: Column(
+                        children: [
+                          // Ma'lumotlarni tahrirlash
+                          _buildMenuItem(
+                            'assets/icons/edit-profile.svg',
+                            'Ma\'lumotlarni tahrirlash',
+                            () async {
+                              if (_user == null) return;
 
-                        // Ma'lumotlarni tahrirlash
-                        _buildMenuItem(
-                          'assets/icons/user.svg',
-                          'Ma\'lumotlarni tahrirlash',
-                          () async {
-                            if (_user == null) return;
+                              final result = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => EditProfilePage(user: _user!),
+                                ),
+                              );
 
-                            final result = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => EditProfilePage(user: _user!),
-                              ),
-                            );
+                              if (result == true) {
+                                _loadUserData();
+                              }
+                            },
+                          ),
 
-                            if (result == true) {
-                              _loadUserData();
-                            }
-                          },
-                        ),
-                        
-                        // Mening kurslarim
-                        _buildMenuItem(
-                          'assets/icons/courses.svg',
-                          'Mening kurslarim',
-                          () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const ActiveCoursesPage(),
-                              ),
-                            ).then((_) => _loadUserData());
-                          },
-                        ),
-                        
-                        // Tranzaksiyalar tarixi
-                        _buildMenuItem(
-                          'assets/icons/wallet.svg',
-                          'Tranzaksiyalar tarixi',
-                          () {
-                            ToastUtils.showInfo(context, "Jarayonda...");
-                          },
-                        ),
-                        
-                        // Til
-                        _buildMenuItem(
-                          null,
-                          'Til',
-                          () {
-                            ToastUtils.showInfo(context, "Jarayonda...");
-                          },
-                          icon: Icons.language_rounded,
-                          trailing: 'O\'zbekcha',
-                        ),
-                        
-                        // Biz bilan aloqa
-                        _buildMenuItem(
-                          null,
-                          'Biz bilan aloqa',
-                          () {
-                            ToastUtils.showInfo(context, "Jarayonda...");
-                          },
-                          icon: Icons.phone_rounded,
-                        ),
-                        
-                        // O'qituvchi bo'lish
-                        _buildMenuItem(
-                          null,
-                          'O\'qituvchi bo\'lish',
-                          () {
-                            ToastUtils.showInfo(context, "Jarayonda...");
-                          },
-                          icon: Icons.school_rounded,
-                        ),
+                          _buildDivider(),
 
-                        SizedBox(height: 8.h),
-                        Divider(height: 1.h, thickness: 1, indent: 16.w, endIndent: 16.w),
-                        SizedBox(height: 8.h),
+                          // Mening kurslarim
+                          _buildMenuItem(
+                            'assets/icons/book-courses.svg',
+                            'Mening kurslarim',
+                            () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const ActiveCoursesPage(),
+                                ),
+                              ).then((_) => _loadUserData());
+                            },
+                            badge: _enrolledCount > 0
+                                ? _enrolledCount.toString()
+                                : null,
+                          ),
 
-                        // Akkauntdan chiqish
-                        _buildMenuItem(
-                          'assets/icons/logout.svg',
-                          'Akkauntdan chiqish',
-                          _logout,
-                          color: AppColors.error,
-                        ),
+                          _buildDivider(),
 
-                        SizedBox(height: 32.h),
-                      ],
+                          // Natijalarim
+                          _buildMenuItem(
+                            'assets/icons/certificate.svg',
+                            'Natijalarim',
+                            () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const ResultsPage(),
+                                ),
+                              );
+                            },
+                          ),
+
+                          _buildDivider(),
+
+                          // Foydalanilgan promokodlar
+                          _buildMenuItem(
+                            'assets/icons/tag.svg',
+                            'Foydalanilgan promokodlar',
+                            () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const UsedPromoCodesPage(),
+                                ),
+                              );
+                            },
+                          ),
+
+                          _buildDivider(),
+
+                          // Til
+                          _buildMenuItem(
+                            'assets/icons/language.svg',
+                            'Til',
+                            () {
+                              _showLanguageDialog();
+                            },
+                            trailing: 'O\'zbekcha',
+                          ),
+
+                          _buildDivider(),
+
+                          // Biz bilan aloqa
+                          _buildMenuItem(
+                            'assets/icons/telegram.svg',
+                            'Biz bilan aloqa',
+                            () {
+                              ToastUtils.showInfo(context, "Jarayonda...");
+                            },
+                          ),
+
+                          _buildDivider(),
+
+                          // O'qituvchi bo'lish
+                          _buildMenuItem(
+                            'assets/icons/telegram.svg',
+                            'O\'qituvchi bo\'lish',
+                            () {
+                              ToastUtils.showInfo(context, "Jarayonda...");
+                            },
+                          ),
+
+                          _buildDivider(),
+
+                          // Akkauntdan chiqish
+                          _buildMenuItem(
+                            'assets/icons/logout-icon.svg',
+                            'Akkauntdan chiqish',
+                            _logout,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
+
+                  SliverToBoxAdapter(child: SizedBox(height: 32.h)),
                 ],
               ),
             ),
@@ -934,32 +1092,52 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildStatCard(String value, String label, String iconPath) {
     return Container(
-      padding: EdgeInsets.symmetric(vertical: 12.h),
+      height: 110.h, // Fixed height for consistency
+      padding: EdgeInsets.all(12.w),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F5F5),
+        borderRadius: BorderRadius.circular(16.r),
+      ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SvgPicture.asset(
-            iconPath,
-            width: 28.w,
-            height: 28.h,
-            colorFilter: const ColorFilter.mode(
-              AppColors.primary,
-              BlendMode.srcIn,
-            ),
-          ),
-          SizedBox(height: 8.h),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 22.sp,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          SizedBox(height: 4.h),
           Text(
             label,
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12.sp, color: AppColors.textSecondary),
+            textAlign: TextAlign.left,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11.sp,
+              fontWeight: FontWeight.w400,
+              color: const Color(0xFF6B7280),
+              height: 1.2,
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SvgPicture.asset(
+                iconPath,
+                width: 24.w,
+                height: 24.h,
+                fit: BoxFit.contain,
+                colorFilter: const ColorFilter.mode(
+                  Color(0xFF3366FF),
+                  BlendMode.srcIn,
+                ),
+              ),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 24.sp,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1F2937),
+                  height: 1,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -967,92 +1145,110 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildMenuItem(
-    String? iconPath,
+    dynamic icon,
     String title,
     VoidCallback onTap, {
     String? trailing,
-    Color? color,
-    IconData? icon,
+    String? badge,
+    bool isDestructive = false,
   }) {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 6.h),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16.r),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ListTile(
-        contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16.r),
-        ),
-        leading: Container(
-          padding: EdgeInsets.all(10.w),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: color != null
-                  ? [color.withOpacity(0.15), color.withOpacity(0.05)]
-                  : [
-                      AppColors.primary.withOpacity(0.15),
-                      AppColors.primary.withOpacity(0.05),
-                    ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+    final iconColor = isDestructive ? AppColors.error : const Color(0xFF6B7280);
+
+    debugPrint('🎨 Building menu item: $title');
+    debugPrint('   Icon type: ${icon is String ? "SVG" : "IconData"}');
+    debugPrint('   Icon color: $iconColor');
+
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+        child: Row(
+          children: [
+            Container(
+              width: 24.sp,
+              height: 24.sp,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: Colors.transparent),
+              child: icon is String
+                  ? SvgPicture.asset(
+                      icon,
+                      width: 24.sp,
+                      height: 24.sp,
+                      colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+                    )
+                  : IconTheme(
+                      data: const IconThemeData(
+                        color: Color(0xFF6B7280),
+                        size: 24,
+                        opacity: 1.0,
+                      ),
+                      child: Icon(
+                        icon as IconData,
+                        size: 24.sp,
+                        color: const Color(0xFF6B7280),
+                        applyTextScaling: false,
+                      ),
+                    ),
             ),
-            borderRadius: BorderRadius.circular(12.r),
-          ),
-          child: icon != null
-              ? Icon(icon, size: 22.sp, color: color ?? AppColors.primary)
-              : SvgPicture.asset(
-                  iconPath!,
-                  width: 22.w,
-                  height: 22.h,
-                  colorFilter: ColorFilter.mode(
-                    color ?? AppColors.primary,
-                    BlendMode.srcIn,
-                  ),
+            SizedBox(width: 16.w),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 15.sp,
+                  fontWeight: FontWeight.w400,
+                  color: isDestructive
+                      ? AppColors.error
+                      : const Color(0xFF1F2937),
                 ),
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontSize: 15.sp,
-            fontWeight: FontWeight.w600,
-            color: color ?? AppColors.textPrimary,
-          ),
-        ),
-        trailing: trailing != null
-            ? Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    trailing,
+                overflow: TextOverflow.visible,
+                maxLines: 1,
+              ),
+            ),
+            if (trailing != null) ...[
+              SizedBox(width: 8.w),
+              Text(
+                trailing,
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  color: const Color(0xFF9CA3AF),
+                ),
+              ),
+            ],
+            if (badge != null) ...[
+              SizedBox(width: 8.w),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                constraints: BoxConstraints(minWidth: 28.w),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(14.r),
+                ),
+                child: Center(
+                  child: Text(
+                    badge,
                     style: TextStyle(
-                      fontSize: 14.sp,
-                      color: AppColors.textSecondary,
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
                     ),
                   ),
-                  SizedBox(width: 4.w),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: AppColors.textSecondary,
-                    size: 20.sp,
-                  ),
-                ],
-              )
-            : Icon(
-                Icons.chevron_right_rounded,
-                color: AppColors.textSecondary,
-                size: 20.sp,
+                ),
               ),
-        onTap: onTap,
+            ],
+            SizedBox(width: 8.w),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 20.sp,
+              color: const Color(0xFF6B7280),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  Widget _buildDivider() {
+    return Divider(height: 1.h, thickness: 1.h, color: const Color(0xFFF3F4F6));
   }
 }

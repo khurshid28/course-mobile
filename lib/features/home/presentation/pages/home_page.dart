@@ -64,13 +64,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     try {
       final dataSource = getIt<NotificationRemoteDataSource>();
       final result = await dataSource.getUnreadCount();
+      debugPrint('🔔 Home - Unread count loaded: ${result['count']}');
       if (mounted) {
         setState(() {
           _unreadNotificationCount = result['count'] ?? 0;
         });
+        debugPrint('🔔 Home - State updated: $_unreadNotificationCount');
       }
     } catch (e) {
-      // Silently fail
+      debugPrint('❌ Home - Error loading unread count: $e');
     }
   }
 
@@ -800,6 +802,87 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         return _buildCourseCard(course);
                       },
                     ),
+
+              // Become Teacher Banner
+              Container(
+                width: double.infinity,
+                margin: EdgeInsets.all(16.w),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF3366FF), Color(0xFF5B8DEF)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(24.r),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.all(24.w),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Siz malakali\no\'qituvchimisiz?',
+                        style: TextStyle(
+                          fontSize: 22.sp,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          height: 1.2,
+                        ),
+                      ),
+                      SizedBox(height: 12.h),
+                      Text(
+                        'Agar siz o\'z sohangizda tajribali mutaxassis bo\'lsangiz, bizning jamoa sizni hamkorlikka chorlaydi. Biz bilan hamkorlikda kurslar yarating hamda mo\'may daromad qasiga aylaning!',
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          color: Colors.white.withOpacity(0.95),
+                          height: 1.5,
+                        ),
+                      ),
+                      SizedBox(height: 20.h),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            ToastUtils.showInfo(
+                              context,
+                              'Tez orada bu funksiya ochiladi',
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: AppColors.primary,
+                            padding: EdgeInsets.symmetric(vertical: 14.h),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(50.r),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: Text(
+                            'O\'qituvchi bo\'lish',
+                            style: TextStyle(
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 20.h),
+                      Center(
+                        child: Image.asset(
+                          'assets/images/teacher_illustration.png',
+                          height: 220.h,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            return SizedBox(height: 220.h);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              SizedBox(height: 80.h), // Bottom padding for nav bar
             ],
           ),
         ),

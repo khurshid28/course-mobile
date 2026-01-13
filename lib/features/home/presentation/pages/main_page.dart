@@ -106,144 +106,116 @@ class MainPageState extends State<MainPage> {
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 12,
-              offset: const Offset(0, -4),
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, -2),
             ),
           ],
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20.r),
-            topRight: Radius.circular(20.r),
+        ),
+        child: SafeArea(
+          child: Container(
+            height: 60.h,
+            padding: EdgeInsets.symmetric(horizontal: 16.w),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavItem(
+                  index: 0,
+                  iconPath: 'assets/icons/home-new.svg',
+                  label: 'Asosiy',
+                ),
+                _buildNavItem(
+                  index: 1,
+                  iconPath: 'assets/icons/book-courses.svg',
+                  label: 'Kurslar',
+                ),
+                _buildNavItem(
+                  index: 2,
+                  iconPath: 'assets/icons/history.svg',
+                  label: 'To\'lovlar',
+                ),
+                _buildNavItem(
+                  index: 3,
+                  iconPath: 'assets/icons/user.svg',
+                  label: 'Profil',
+                  showBadge: _activeCoursesCount > 0,
+                  badgeCount: _activeCoursesCount,
+                ),
+              ],
+            ),
           ),
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20.r),
-            topRight: Radius.circular(20.r),
-          ),
-          child: BottomNavigationBar(
-            currentIndex: _currentIndex,
-            onTap: (index) => setState(() => _currentIndex = index),
-            type: BottomNavigationBarType.fixed,
-            backgroundColor: Colors.white,
-            selectedItemColor: const Color(0xFF3366FF),
-            unselectedItemColor: const Color(0xFF9E9E9E),
-            selectedFontSize: 12.sp,
-            unselectedFontSize: 11.sp,
-            selectedLabelStyle: TextStyle(
-              fontWeight: FontWeight.w600,
-              height: 1.8,
-            ),
-            unselectedLabelStyle: TextStyle(
-              fontWeight: FontWeight.w500,
-              height: 1.8,
-            ),
-            elevation: 0,
-            items: [
-              BottomNavigationBarItem(
-                icon: Padding(
-                  padding: EdgeInsets.only(bottom: 4.h),
-                  child: SvgPicture.asset(
-                    'assets/icons/home.svg',
-                    width: 24.w,
-                    height: 24.h,
-                    colorFilter: ColorFilter.mode(
-                      _currentIndex == 0
-                          ? const Color(0xFF3366FF)
-                          : const Color(0xFF9E9E9E),
-                      BlendMode.srcIn,
-                    ),
-                  ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem({
+    required int index,
+    required String iconPath,
+    required String label,
+    bool showBadge = false,
+    int badgeCount = 0,
+  }) {
+    final isSelected = _currentIndex == index;
+    final color = isSelected
+        ? const Color(0xFF3366FF)
+        : const Color(0xFF6B7280);
+
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _currentIndex = index),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                SvgPicture.asset(
+                  iconPath,
+                  width: 24.w,
+                  height: 24.h,
+                  colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
                 ),
-                label: 'Asosiy',
-              ),
-              BottomNavigationBarItem(
-                icon: Padding(
-                  padding: EdgeInsets.only(bottom: 4.h),
-                  child: SvgPicture.asset(
-                    'assets/icons/courses.svg',
-                    width: 24.w,
-                    height: 24.h,
-                    colorFilter: ColorFilter.mode(
-                      _currentIndex == 1
-                          ? const Color(0xFF3366FF)
-                          : const Color(0xFF9E9E9E),
-                      BlendMode.srcIn,
-                    ),
-                  ),
-                ),
-                label: 'Kurslar',
-              ),
-              BottomNavigationBarItem(
-                icon: Padding(
-                  padding: EdgeInsets.only(bottom: 4.h),
-                  child: SvgPicture.asset(
-                    'assets/icons/history.svg',
-                    width: 24.w,
-                    height: 24.h,
-                    colorFilter: ColorFilter.mode(
-                      _currentIndex == 2
-                          ? const Color(0xFF3366FF)
-                          : const Color(0xFF9E9E9E),
-                      BlendMode.srcIn,
-                    ),
-                  ),
-                ),
-                label: 'Reyting',
-              ),
-              BottomNavigationBarItem(
-                icon: Padding(
-                  padding: EdgeInsets.only(bottom: 4.h),
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      SvgPicture.asset(
-                        'assets/icons/user.svg',
-                        width: 24.w,
-                        height: 24.h,
-                        colorFilter: ColorFilter.mode(
-                          _currentIndex == 3
-                              ? const Color(0xFF3366FF)
-                              : const Color(0xFF9E9E9E),
-                          BlendMode.srcIn,
+                if (showBadge && badgeCount > 0)
+                  Positioned(
+                    right: -6,
+                    top: -4,
+                    child: Container(
+                      padding: EdgeInsets.all(4.w),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: BoxConstraints(
+                        minWidth: 16.w,
+                        minHeight: 16.h,
+                      ),
+                      child: Center(
+                        child: Text(
+                          badgeCount > 9 ? '9+' : badgeCount.toString(),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 9.sp,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
                       ),
-                      if (_activeCoursesCount > 0)
-                        Positioned(
-                          right: -6,
-                          top: -4,
-                          child: Container(
-                            padding: EdgeInsets.all(4.w),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                            ),
-                            constraints: BoxConstraints(
-                              minWidth: 16.w,
-                              minHeight: 16.h,
-                            ),
-                            child: Center(
-                              child: Text(
-                                _activeCoursesCount > 9
-                                    ? '9+'
-                                    : _activeCoursesCount.toString(),
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 9.sp,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
+                    ),
                   ),
-                ),
-                label: 'Profil',
+              ],
+            ),
+            SizedBox(height: 4.h),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11.sp,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: color,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

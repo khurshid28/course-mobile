@@ -81,23 +81,23 @@ class _ActiveCoursesPageState extends State<ActiveCoursesPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Faol kurslar'),
-        leading: Padding(
-          padding: EdgeInsets.all(8.w),
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8.r),
-              border: Border.all(
-                color: AppColors.primary.withOpacity(0.3),
-                width: 1,
-              ),
+        leading: Container(
+          width: 36.w,
+          height: 36.h,
+          margin: EdgeInsets.all(8.w),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE0E0E0),
+            borderRadius: BorderRadius.circular(8.r),
+          ),
+          child: IconButton(
+            icon: Icon(
+              Icons.arrow_back_ios_new,
+              color: const Color(0xFF666666),
+              size: 16.sp,
             ),
-            child: IconButton(
-              icon: Icon(Icons.arrow_back_ios_new, color: AppColors.primary),
-              iconSize: 18.sp,
-              padding: EdgeInsets.zero,
-              onPressed: () => Navigator.pop(context),
-            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: () => Navigator.pop(context),
           ),
         ),
         actions: [

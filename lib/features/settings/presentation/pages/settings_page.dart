@@ -47,23 +47,23 @@ class _SettingsPageState extends State<SettingsPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Sozlamalar'),
-        leading: Padding(
-          padding: EdgeInsets.all(8.w),
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8.r),
-              border: Border.all(
-                color: AppColors.primary.withOpacity(0.3),
-                width: 1,
-              ),
+        leading: Container(
+          width: 36.w,
+          height: 36.h,
+          margin: EdgeInsets.all(8.w),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE0E0E0),
+            borderRadius: BorderRadius.circular(8.r),
+          ),
+          child: IconButton(
+            icon: Icon(
+              Icons.arrow_back_ios_new,
+              color: const Color(0xFF666666),
+              size: 16.sp,
             ),
-            child: IconButton(
-              icon: Icon(Icons.arrow_back_ios_new, color: AppColors.primary),
-              iconSize: 18.sp,
-              padding: EdgeInsets.zero,
-              onPressed: () => Navigator.pop(context),
-            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: () => Navigator.pop(context),
           ),
         ),
       ),
@@ -88,9 +88,8 @@ class _SettingsPageState extends State<SettingsPage> {
                     final result = await Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => BalanceTopupPage(
-                          currentBalance: _balance,
-                        ),
+                        builder: (_) =>
+                            BalanceTopupPage(currentBalance: _balance),
                       ),
                     );
                     if (result == true) {
@@ -347,7 +346,11 @@ class _SettingsPageState extends State<SettingsPage> {
                     width: 32.w,
                     height: 24.h,
                     color: AppColors.background,
-                    child: Icon(Icons.flag, size: 16.sp, color: AppColors.textSecondary),
+                    child: Icon(
+                      Icons.flag,
+                      size: 16.sp,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ),
               ),

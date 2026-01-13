@@ -74,207 +74,225 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF4C7CFF),
-              Color(0xFF3366FF),
-            ],
+            colors: [Color(0xFF4C7CFF), Color(0xFF3366FF)],
           ),
         ),
         child: SafeArea(
-          child: Column(
-            children: [
-              // Logo section
-              Expanded(
-                flex: 2,
-                child: Center(
-                  child: Container(
-                    width: 180.w,
-                    height: 100.h,
-                    padding: EdgeInsets.all(20.w),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12.r),
-                    ),
-                    child: SvgPicture.asset(
-                      'assets/icons/logo.svg',
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                ),
+          child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight:
+                    MediaQuery.of(context).size.height -
+                    MediaQuery.of(context).padding.top -
+                    MediaQuery.of(context).padding.bottom,
               ),
-              
-              // White bottom section
-              Expanded(
-                flex: 3,
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(24.r),
-                      topRight: Radius.circular(24.r),
-                    ),
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 32.h),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Title
-                        Text(
-                          'Tizimga kirish',
-                          style: TextStyle(
-                            fontSize: 24.sp,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
-                        ),
-                        SizedBox(height: 24.h),
-                        
-                        // Google Sign In Button
-                        _buildSocialButton(
-                          icon: 'G',
-                          text: 'Google orqali davom ettrish',
-                          onTap: () {
-                            Fluttertoast.showToast(
-                              msg: "Google login hozirda ishlamaydi",
-                              backgroundColor: AppColors.info,
-                            );
-                          },
-                        ),
-                        SizedBox(height: 12.h),
-                        
-                        // Apple Sign In Button
-                        _buildSocialButton(
-                          icon: '',
-                          text: 'Sign up with Apple',
-                          onTap: () {
-                            Fluttertoast.showToast(
-                              msg: "Apple login hozirda ishlamaydi",
-                              backgroundColor: AppColors.info,
-                            );
-                          },
-                          isApple: true,
-                        ),
-                        SizedBox(height: 20.h),
-                        
-                        // Divider with text
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Container(
-                                height: 1,
-                                color: const Color(0xFFE0E0E0),
-                              ),
-                            ),
-                            Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 12.w),
-                              child: Text(
-                                'Yoki telefon raqam orqali davom ettiring',
-                                style: TextStyle(
-                                  fontSize: 13.sp,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Container(
-                                height: 1,
-                                color: const Color(0xFFE0E0E0),
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 16.h),
-                        
-                        // Phone label
-                        Text(
-                          'Telefon raqami',
-                          style: TextStyle(
-                            fontSize: 14.sp,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        SizedBox(height: 8.h),
-                        
-                        // Phone input
-                        Container(
+              child: IntrinsicHeight(
+                child: Column(
+                  children: [
+                    // Logo section
+                    Expanded(
+                      flex: 2,
+                      child: Center(
+                        child: Container(
+                          width: 180.w,
+                          height: 100.h,
+                          padding: EdgeInsets.all(20.w),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF5F5F5),
+                            color: Colors.white,
                             borderRadius: BorderRadius.circular(12.r),
                           ),
-                          child: TextField(
-                            controller: _phoneController,
-                            keyboardType: TextInputType.phone,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(9),
-                              _PhoneNumberFormatter(),
-                            ],
-                            cursorColor: AppColors.primary,
-                            decoration: InputDecoration(
-                              hintText: '__ ___ __ __',
-                              hintStyle: TextStyle(
-                                color: Colors.grey[400],
-                                fontSize: 16.sp,
-                              ),
-                              prefixIcon: Padding(
-                                padding: EdgeInsets.only(left: 16.w, right: 12.w),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      '+998',
-                                      style: TextStyle(
-                                        fontSize: 16.sp,
-                                        fontWeight: FontWeight.w500,
-                                        color: Colors.black,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 16.w,
-                                vertical: 16.h,
-                              ),
-                            ),
-                            style: TextStyle(
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.black,
-                            ),
+                          child: SvgPicture.asset(
+                            'assets/icons/logo.svg',
+                            fit: BoxFit.contain,
                           ),
                         ),
-                        
-                        const Spacer(),
-                        
-                        // Login button
-                        PrimaryButton(
-                          text: 'Tizimga kirish',
-                          onPressed: _sendCode,
-                          isLoading: _isLoading,
-                        ),
-                        SizedBox(height: 16.h),
-                      ],
+                      ),
                     ),
-                  ),
+
+                    // White bottom section
+                    Expanded(
+                      flex: 3,
+                      child: Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(24.r),
+                            topRight: Radius.circular(24.r),
+                          ),
+                        ),
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 24.w,
+                            vertical: 32.h,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Title
+                              Text(
+                                'Tizimga kirish',
+                                style: TextStyle(
+                                  fontSize: 24.sp,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              SizedBox(height: 24.h),
+
+                              // Google Sign In Button
+                              _buildSocialButton(
+                                icon: 'G',
+                                text: 'Google orqali davom ettrish',
+                                onTap: () {
+                                  Fluttertoast.showToast(
+                                    msg: "Google login hozirda ishlamaydi",
+                                    backgroundColor: AppColors.info,
+                                  );
+                                },
+                              ),
+                              SizedBox(height: 12.h),
+
+                              // Apple Sign In Button
+                              _buildSocialButton(
+                                icon: '',
+                                text: 'Sign up with Apple',
+                                onTap: () {
+                                  Fluttertoast.showToast(
+                                    msg: "Apple login hozirda ishlamaydi",
+                                    backgroundColor: AppColors.info,
+                                  );
+                                },
+                                isApple: true,
+                              ),
+                              SizedBox(height: 20.h),
+
+                              // Divider with text
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Container(
+                                      height: 1,
+                                      color: const Color(0xFFE0E0E0),
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 12.w,
+                                    ),
+                                    child: Text(
+                                      'Yoki telefon raqam orqali davom ettiring',
+                                      style: TextStyle(
+                                        fontSize: 13.sp,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Container(
+                                      height: 1,
+                                      color: const Color(0xFFE0E0E0),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 16.h),
+
+                              // Phone label
+                              Text(
+                                'Telefon raqami',
+                                style: TextStyle(
+                                  fontSize: 14.sp,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              SizedBox(height: 8.h),
+
+                              // Phone input
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF5F5F5),
+                                  borderRadius: BorderRadius.circular(12.r),
+                                ),
+                                child: TextField(
+                                  controller: _phoneController,
+                                  keyboardType: TextInputType.phone,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(9),
+                                    _PhoneNumberFormatter(),
+                                  ],
+                                  cursorColor: AppColors.primary,
+                                  decoration: InputDecoration(
+                                    hintText: '__ ___ __ __',
+                                    hintStyle: TextStyle(
+                                      color: Colors.grey[400],
+                                      fontSize: 16.sp,
+                                    ),
+                                    prefixIcon: Padding(
+                                      padding: EdgeInsets.only(
+                                        left: 16.w,
+                                        right: 12.w,
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            '+998',
+                                            style: TextStyle(
+                                              fontSize: 16.sp,
+                                              fontWeight: FontWeight.w500,
+                                              color: Colors.black,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 16.w,
+                                      vertical: 16.h,
+                                    ),
+                                  ),
+                                  style: TextStyle(
+                                    fontSize: 16.sp,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                              ),
+
+                              const Spacer(),
+
+                              // Login button
+                              PrimaryButton(
+                                text: 'Tizimga kirish',
+                                onPressed: _sendCode,
+                                isLoading: _isLoading,
+                              ),
+                              SizedBox(height: 16.h),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
-  
+
   Widget _buildSocialButton({
     required String icon,
     required String text,
@@ -302,11 +320,7 @@ class _RegisterPageState extends State<RegisterPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (isApple)
-              Icon(
-                Icons.apple,
-                size: 24.sp,
-                color: Colors.black,
-              )
+              Icon(Icons.apple, size: 24.sp, color: Colors.black)
             else
               SvgPicture.asset(
                 'assets/icons/google.svg',

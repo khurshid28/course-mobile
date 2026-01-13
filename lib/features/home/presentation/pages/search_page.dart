@@ -24,18 +24,24 @@ class SearchPage extends StatefulWidget {
 }
 
 class SearchPageState extends State<SearchPage>
-    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin {
   final _searchController = TextEditingController();
-  late TabController _tabController;
   bool _isLoadingCourses = false;
-  bool _isLoadingTeachers = false;
   List<Map<String, dynamic>> _courseResults = [];
   List<Map<String, dynamic>> _allCourses = []; // Cache for all courses
-  List<Map<String, dynamic>> _teacherResults = [];
-  List<Map<String, dynamic>> _allTeachers = []; // Cache for all teachers
   List<Map<String, dynamic>> _categories = [];
+  List<Map<String, dynamic>> _teachers = []; // All teachers for filter
   int? _selectedCategoryId;
-  bool _teachersLoaded = false; // Flag to check if teachers are loaded
+
+  // Filter variables
+  List<int> _selectedTeacherIds = [];
+  String? _selectedPriceFilter; // 'free' or 'paid'
+  String? _selectedLevelFilter; // 'BEGINNER', 'INTERMEDIATE', 'ADVANCED'
+
+  bool get _hasActiveFilters =>
+      _selectedTeacherIds.isNotEmpty ||
+      _selectedPriceFilter != null ||
+      _selectedLevelFilter != null;
 
   @override
   bool get wantKeepAlive => true;
@@ -43,20 +49,9 @@ class SearchPageState extends State<SearchPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() {
-      // When switching tabs, apply category filter
-      if (_tabController.indexIsChanging) {
-        if (_tabController.index == 1) {
-          // Switched to teachers tab
-          _searchTeachers(_searchController.text);
-        }
-      }
-      setState(() {}); // Rebuild to update icon colors
-    });
     _selectedCategoryId = widget.categoryId;
     _loadCategories();
-    // Load default data
+    _loadTeachers();
     _loadDefaultCourses();
     if (_selectedCategoryId != null) {
       _loadCoursesByCategory(_selectedCategoryId!);
@@ -67,28 +62,32 @@ class SearchPageState extends State<SearchPage>
   void didUpdateWidget(SearchPage oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Kategoriya o'zgarganda yangilash
     if (oldWidget.categoryId != widget.categoryId) {
       setState(() {
         _selectedCategoryId = widget.categoryId;
       });
 
-      // Yangi kategoriya bo'yicha filtrlaymiz
       if (_selectedCategoryId != null) {
-        if (_tabController.index == 0) {
-          // Courses tab
-          _loadCoursesByCategory(_selectedCategoryId!);
-        } else {
-          // Teachers tab
-          _searchTeachers(_searchController.text);
-        }
+        _loadCoursesByCategory(_selectedCategoryId!);
       } else {
-        // Kategoriya olib tashlangan bo'lsa, barcha natijalarni ko'rsatamiz
         setState(() {
           _courseResults = _allCourses;
-          _teacherResults = _allTeachers;
         });
       }
+    }
+  }
+
+  Future<void> _loadTeachers() async {
+    try {
+      final courseDataSource = getIt<CourseRemoteDataSource>();
+      final teachers = await courseDataSource.getAllTeachers();
+      if (mounted) {
+        setState(() {
+          _teachers = teachers.cast<Map<String, dynamic>>();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading teachers: $e');
     }
   }
 
@@ -160,9 +159,9 @@ class SearchPageState extends State<SearchPage>
   }
 
   @override
+  @override
   void dispose() {
     _searchController.dispose();
-    _tabController.dispose();
     super.dispose();
   }
 
@@ -360,8 +359,11 @@ class SearchPageState extends State<SearchPage>
                   ),
                 ),
               ),
-              suffixIcon: _searchController.text.isNotEmpty
-                  ? IconButton(
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_searchController.text.isNotEmpty)
+                    IconButton(
                       icon: const Icon(Icons.clear, color: Colors.white),
                       onPressed: () {
                         _searchController.clear();
@@ -370,8 +372,39 @@ class SearchPageState extends State<SearchPage>
                           _selectedCategoryId = null;
                         });
                       },
-                    )
-                  : null,
+                    ),
+                  Stack(
+                    children: [
+                      IconButton(
+                        icon: SvgPicture.asset(
+                          'assets/icons/filter.svg',
+                          width: 20.w,
+                          height: 20.h,
+                          colorFilter: const ColorFilter.mode(
+                            Colors.white,
+                            BlendMode.srcIn,
+                          ),
+                        ),
+                        onPressed: _showFilterBottomSheet,
+                      ),
+                      if (_hasActiveFilters)
+                        Positioned(
+                          right: 8,
+                          top: 8,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: AppColors.error,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 1),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
               contentPadding: EdgeInsets.symmetric(
                 horizontal: 16.w,
                 vertical: 12.h,

@@ -159,23 +159,23 @@ class _NotificationsPageState extends State<NotificationsPage> {
           'Bildirishnomalar',
           style: TextStyle(color: Colors.white),
         ),
-        leading: Padding(
-          padding: EdgeInsets.all(8.w),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8.r),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.3),
-                width: 1,
-              ),
+        leading: Container(
+          width: 36.w,
+          height: 36.h,
+          margin: EdgeInsets.all(8.w),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(8.r),
+          ),
+          child: IconButton(
+            icon: Icon(
+              Icons.arrow_back_ios_new,
+              color: Colors.white,
+              size: 16.sp,
             ),
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
-              iconSize: 18.sp,
-              padding: EdgeInsets.zero,
-              onPressed: () => Navigator.pop(context),
-            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: () => Navigator.pop(context),
           ),
         ),
         actions: [
